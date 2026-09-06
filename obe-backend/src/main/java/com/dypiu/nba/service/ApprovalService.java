@@ -1205,16 +1205,17 @@ public class ApprovalService {
 
         if ("allocationStatus".equalsIgnoreCase(statusType)) {
             type = ApprovalType.COURSE_ALLOCATION;
-            masterProgrammeId = key != null ? key.replace("allocation-", "").replace("allocation_", "").replace("allocation", "") : null;
             if (scope != null && scope.isProgrammeCoordinator()) {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Programme Coordinator cannot self-verify course allocation (must be verified by HOD or Director).");
             }
-            if (masterProgrammeId != null) {
-                MasterProgramme p = masterProgrammeRepository.findById(masterProgrammeId).orElseThrow(() -> new ResourceNotFoundException("Programme not found: " + key));
-                departmentId = p.getDepartmentId();
-                if (scope != null && scope.isHod() && !departmentId.equalsIgnoreCase(scope.getRequiredDepartmentId())) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Programme belongs to a different department.");
-                }
+            MasterProgramme p = resolveProgrammeFromAllocationKey(key);
+            if (p == null) {
+                throw new ResourceNotFoundException("Programme not found: " + key);
+            }
+            masterProgrammeId = p.getId();
+            departmentId = p.getDepartmentId();
+            if (scope != null && scope.isHod() && !departmentId.equalsIgnoreCase(scope.getRequiredDepartmentId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Programme belongs to a different department.");
             }
         } else if ("poPsoTargetsStatus".equalsIgnoreCase(statusType) || "targetsStatus".equalsIgnoreCase(statusType)) {
             type = ApprovalType.PO_PSO_TARGETS;
@@ -1364,13 +1365,14 @@ public class ApprovalService {
 
         if ("allocationStatus".equalsIgnoreCase(statusType)) {
             type = ApprovalType.COURSE_ALLOCATION;
-            masterProgrammeId = key != null ? key.replace("allocation-", "").replace("allocation_", "").replace("allocation", "") : null;
-            if (masterProgrammeId != null) {
-                MasterProgramme p = masterProgrammeRepository.findById(masterProgrammeId).orElseThrow(() -> new ResourceNotFoundException("Programme not found: " + key));
-                departmentId = p.getDepartmentId();
-                if (scope != null && scope.isHod() && !departmentId.equalsIgnoreCase(scope.getRequiredDepartmentId())) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Programme belongs to a different department.");
-                }
+            MasterProgramme p = resolveProgrammeFromAllocationKey(key);
+            if (p == null) {
+                throw new ResourceNotFoundException("Programme not found: " + key);
+            }
+            masterProgrammeId = p.getId();
+            departmentId = p.getDepartmentId();
+            if (scope != null && scope.isHod() && !departmentId.equalsIgnoreCase(scope.getRequiredDepartmentId())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Programme belongs to a different department.");
             }
         } else if ("poPsoTargetsStatus".equalsIgnoreCase(statusType) || "targetsStatus".equalsIgnoreCase(statusType)) {
             type = ApprovalType.PO_PSO_TARGETS;
@@ -1466,14 +1468,55 @@ public class ApprovalService {
         return getVerificationStatus(key);
     }
 
-    public boolean isAllocationApproved(String masterProgrammeId) {
-        if (masterProgrammeId == null || masterProgrammeId.isBlank()) return false;
-        String progId = masterProgrammeId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "");
+    private MasterProgramme resolveProgrammeFromAllocationKey(String key) {
+        if (key == null || key.isBlank()) return null;
+        final String raw = key.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
+        final String lookupId = raw.contains("-sem-") ? raw.substring(0, raw.indexOf("-sem-")).trim() : raw;
+
+        // 1. Try masterProgrammeRepository.findById
+        MasterProgramme p = masterProgrammeRepository.findById(lookupId).orElse(null);
+        if (p != null) return p;
+
+        // 2. Try programmeBatchRepository.findById
+        ProgrammeBatch batch = programmeBatchRepository.findById(lookupId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(lookupId))
+                .orElse(null);
+        if (batch != null && batch.getMasterProgrammeId() != null) {
+            return masterProgrammeRepository.findById(batch.getMasterProgrammeId()).orElse(null);
+        }
+
+        // 3. Try finding in approval_requests where resource_id = key
+        ApprovalRequest req = approvalRequestRepository.findAll().stream()
+                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (key.equalsIgnoreCase(a.getResourceId()) || ("allocation-" + key).equalsIgnoreCase(a.getResourceId())))
+                .max(LATEST_APPROVAL_COMPARATOR)
+                .orElse(null);
+        if (req != null && req.getMasterProgrammeId() != null) {
+            return masterProgrammeRepository.findById(req.getMasterProgrammeId()).orElse(null);
+        }
+
+        return null;
+    }
+
+    public boolean isAllocationApproved(String key) {
+        if (key == null || key.isBlank()) return false;
+        String cleanKey = key.trim();
+        String progId = cleanKey.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
         return approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (progId.equalsIgnoreCase(a.getMasterProgrammeId()) || progId.equalsIgnoreCase(a.getMasterProgrammeId()) || masterProgrammeId.equalsIgnoreCase(a.getResourceId())))
+                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (
+                        cleanKey.equalsIgnoreCase(a.getResourceId())
+                        || (a.getResourceId() != null && a.getResourceId().equalsIgnoreCase("allocation-" + cleanKey))
+                        || (cleanKey.equalsIgnoreCase(a.getProgrammeBatchId()) && a.getResourceId() != null && a.getResourceId().equalsIgnoreCase("allocation-" + cleanKey))
+                        || (progId.equalsIgnoreCase(a.getMasterProgrammeId()) && (a.getResourceId() == null || !a.getResourceId().contains("-sem-")))
+                ))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
                 .orElse(false);
+    }
+
+    public boolean isAllocationApproved(String programmeBatchId, Integer semester) {
+        if (programmeBatchId == null || programmeBatchId.isBlank()) return false;
+        String semKey = "allocation-" + programmeBatchId.trim() + "-sem-" + (semester != null ? semester : 1);
+        return isAllocationApproved(semKey);
     }
 
     public boolean isPoPsoTargetsApproved(String masterProgrammeId) {

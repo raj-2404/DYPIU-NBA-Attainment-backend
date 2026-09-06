@@ -226,6 +226,12 @@ public class AcademicService {
 
     public boolean isCourseAllocationApproved(ProgrammeBatchCourse offering) {
         if (offering == null) return false;
+        if (offering.getProgrammeBatchId() != null && offering.getSemester() != null) {
+            String semKey = "allocation-" + offering.getProgrammeBatchId().trim() + "-sem-" + offering.getSemester();
+            if (isAllocationApproved(semKey)) {
+                return true;
+            }
+        }
         String progId = null;
         if (offering.getMasterCourseId() != null) {
             MasterCourse c = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
@@ -3752,12 +3758,44 @@ public class AcademicService {
 
     @Transactional
     public Map<String, Object> allocateCourses(String masterProgrammeId, String programmeBatchId, List<Map<String, Object>> allocations, boolean submit) {
-        if (masterProgrammeId != null) {
+        Integer targetSemester = null;
+        if (allocations != null && !allocations.isEmpty()) {
+            for (Map<String, Object> item : allocations) {
+                if (item.get("semester") != null) {
+                    try {
+                        targetSemester = Integer.parseInt(item.get("semester").toString().trim());
+                        break;
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+        if (targetSemester == null) targetSemester = 1;
+
+        ProgrammeBatch batch = null;
+        if (programmeBatchId != null && !programmeBatchId.isBlank()) {
+            batch = programmeBatchRepository.findById(programmeBatchId)
+                    .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                    .orElse(null);
+        }
+
+        String targetBatchId = batch != null ? batch.getId() : (programmeBatchId != null ? programmeBatchId.trim() : null);
+        String semKey = targetBatchId != null ? ("allocation-" + targetBatchId + "-sem-" + targetSemester) : ("allocation-" + masterProgrammeId);
+
+        if (targetBatchId != null) {
+            enforceBatchScope(targetBatchId);
+            if (isSemesterCompleted(targetBatchId, targetSemester)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify allocations: Semester " + targetSemester + " is COMPLETED and locked.");
+            }
+            if (isAllocationApproved(semKey) || isAllocationApproved("allocation-" + targetBatchId)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify approved Course Allocation for Semester " + targetSemester + ". A revision must be requested first.");
+            }
+        } else if (masterProgrammeId != null) {
             enforceProgrammeScope(masterProgrammeId);
-            if (isAllocationApproved(masterProgrammeId)) {
+            if (isAllocationApproved("allocation-" + masterProgrammeId) || isAllocationApproved(masterProgrammeId)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify approved Course Allocation. A revision must be requested first.");
             }
         }
+
         if (allocations != null) {
             for (Map<String, Object> item : allocations) {
                 String masterCourseId = item.get("masterCourseId") != null ? item.get("masterCourseId").toString() : null;
@@ -3774,29 +3812,29 @@ public class AcademicService {
                         masterCourseRepository.save(course);
                     }
 
-                    if (programmeBatchId != null && !programmeBatchId.isBlank()) {
+                    if (targetBatchId != null && !targetBatchId.isBlank()) {
                         // Resolve the coordinator user
                         User coordinatorUser = null;
                         if (!email.isBlank()) {
                             coordinatorUser = userRepository.findByEmail(email).orElse(null);
                         }
                         
-                        // Check if ProgrammeBatchCourse already exists for masterCourseId + programmeBatchId
+                        // Check if ProgrammeBatchCourse already exists for masterCourseId + targetBatchId
                         List<ProgrammeBatchCourse> existingOfferings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
                         ProgrammeBatchCourse targetOffering = existingOfferings.stream()
-                                .filter(o -> programmeBatchId.equals(o.getProgrammeBatchId()))
+                                .filter(o -> targetBatchId.equals(o.getProgrammeBatchId()))
                                 .findFirst()
                                 .orElse(null);
                                 
                         String semStr = item.get("semester") != null ? item.get("semester").toString() : (course != null ? course.getSemester() : null);
-                        Integer parsedSem = (semStr != null && semStr.trim().matches("\\d+")) ? Integer.parseInt(semStr.trim()) : 1;
+                        Integer parsedSem = (semStr != null && semStr.trim().matches("\\d+")) ? Integer.parseInt(semStr.trim()) : targetSemester;
 
                         if (targetOffering == null) {
                             // Create exactly one ProgrammeBatchCourse
                             targetOffering = ProgrammeBatchCourse.builder()
-                                    .id("off-" + UUID.randomUUID().toString().substring(0, 8))
+                                     .id("off-" + UUID.randomUUID().toString().substring(0, 8))
                                     .masterCourseId(masterCourseId)
-                                    .programmeBatchId(programmeBatchId)
+                                    .programmeBatchId(targetBatchId)
                                     .code(course != null ? course.getCode() : (item.get("code") != null ? item.get("code").toString() : (item.get("courseCode") != null ? item.get("courseCode").toString() : null)))
                                     .name(course != null ? course.getName() : (item.get("name") != null ? item.get("name").toString() : (item.get("courseName") != null ? item.get("courseName").toString() : null)))
                                     .credits(course != null && course.getCredits() != null ? course.getCredits() : (item.get("credits") != null ? Integer.parseInt(item.get("credits").toString()) : 3))
@@ -3827,7 +3865,7 @@ public class AcademicService {
                         
                         programmeBatchCourseRepository.save(targetOffering);
                     } else {
-                        // Fallback to update existing offerings if programmeBatchId is not provided
+                        // Fallback to update existing offerings if targetBatchId is not provided
                         String semStr = item.get("semester") != null ? item.get("semester").toString() : (course != null ? course.getSemester() : null);
                         Integer parsedSem = (semStr != null && semStr.trim().matches("\\d+")) ? Integer.parseInt(semStr.trim()) : null;
                         List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
@@ -3848,24 +3886,304 @@ public class AcademicService {
         }
 
         if (submit) {
+            String progId = batch != null ? batch.getMasterProgrammeId() : masterProgrammeId;
+            String reqTitle = (targetBatchId != null)
+                    ? "Course Allocation: " + (batch != null ? batch.getName() : targetBatchId) + " (Semester " + targetSemester + ")"
+                    : "MasterCourse Allocation for MasterProgramme " + masterProgrammeId;
+
             ApprovalRequest req = ApprovalRequest.builder()
                     .id("app-alloc-" + UUID.randomUUID().toString().substring(0, 8))
                     .type(ApprovalType.COURSE_ALLOCATION)
-                    .title("MasterCourse Allocation for MasterProgramme " + masterProgrammeId)
-                    .masterProgrammeId(masterProgrammeId)
-                    .resourceId("allocation-" + masterProgrammeId)
+                    .title(reqTitle)
+                    .masterProgrammeId(progId)
+                    .programmeBatchId(targetBatchId)
+                    .resourceId(semKey)
                     .status(ApprovalStatus.PENDING)
-                    .submittedBy("MasterProgramme Coordinator")
+                    .submittedBy("Programme Coordinator")
                     .submittedAt(ZonedDateTime.now())
-                    .remarks("Allocations submitted for HOD review.")
+                    .remarks("Allocations for Semester " + targetSemester + " submitted for HOD review.")
                     .build();
             approvalRequestRepository.save(req);
         }
 
         Map<String, Object> res = new LinkedHashMap<>();
         res.put("success", true);
-        res.put("message", submit ? "MasterCourse allocations saved and submitted for verification." : "MasterCourse allocations saved successfully.");
+        res.put("message", submit ? "Course allocations saved and submitted for verification." : "Course allocations saved successfully.");
         return res;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isSemesterCompleted(String programmeBatchId, Integer semester) {
+        if (programmeBatchId == null || semester == null) return false;
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElse(null);
+        if (batch == null) return false;
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId())
+                .stream()
+                .filter(o -> Objects.equals(o.getSemester(), semester))
+                .toList();
+        if (offerings.isEmpty()) return false;
+        return offerings.stream().allMatch(o -> "COMPLETED".equalsIgnoreCase(o.getStatus()));
+    }
+
+    @Transactional(readOnly = true)
+    public com.dypiu.nba.dto.SemesterReadinessDto getSemesterReadiness(String programmeBatchId, Integer semester) {
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        enforceBatchScope(batch.getId());
+
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId())
+                .stream()
+                .filter(o -> Objects.equals(o.getSemester(), semester))
+                .toList();
+
+        List<com.dypiu.nba.dto.SemesterReadinessDto.ReadinessWarning> warnings = new ArrayList<>();
+        int readyCount = 0;
+
+        String semKey = "allocation-" + batch.getId() + "-sem-" + semester;
+        boolean allocationApproved = isAllocationApproved(semKey);
+        if (!allocationApproved) {
+            warnings.add(com.dypiu.nba.dto.SemesterReadinessDto.ReadinessWarning.builder()
+                    .issue("ALLOCATION_NOT_APPROVED")
+                    .message("Course allocation for Semester " + semester + " has not been approved by the HOD.")
+                    .build());
+        }
+
+        for (ProgrammeBatchCourse off : offerings) {
+            boolean courseReady = true;
+
+            // 1. COs & Targets
+            boolean hasCos = courseOutcomeRepository.findByProgrammeBatchCourseId(off.getId())
+                    .stream().findAny().isPresent();
+            if (!hasCos) {
+                courseReady = false;
+                warnings.add(com.dypiu.nba.dto.SemesterReadinessDto.ReadinessWarning.builder()
+                        .programmeBatchCourseId(off.getId())
+                        .courseCode(off.getCode())
+                        .courseName(off.getName())
+                        .issue("CO_TARGETS_INCOMPLETE")
+                        .message("Course Outcomes / targets are incomplete or not configured for course " + off.getCode() + ".")
+                        .build());
+            }
+
+            // 2. Attainment Settings
+            boolean hasConfig = configRepository.findByProgrammeBatchCourseId(off.getId()).isPresent();
+            if (!hasConfig) {
+                courseReady = false;
+                warnings.add(com.dypiu.nba.dto.SemesterReadinessDto.ReadinessWarning.builder()
+                        .programmeBatchCourseId(off.getId())
+                        .courseCode(off.getCode())
+                        .courseName(off.getName())
+                        .issue("ATTAINMENT_SETTINGS_INCOMPLETE")
+                        .message("Attainment settings/configuration not completed for course " + off.getCode() + ".")
+                        .build());
+            }
+
+            // 3. Course ATR
+            boolean atrApproved = isCourseAtrApprovedInternal(off.getId());
+            if (!atrApproved) {
+                courseReady = false;
+                warnings.add(com.dypiu.nba.dto.SemesterReadinessDto.ReadinessWarning.builder()
+                        .programmeBatchCourseId(off.getId())
+                        .courseCode(off.getCode())
+                        .courseName(off.getName())
+                        .issue("COURSE_ATR_NOT_APPROVED")
+                        .message("Course ATR is not approved for course " + off.getCode() + ".")
+                        .build());
+            }
+
+            if (courseReady) {
+                readyCount++;
+            }
+        }
+
+        boolean isCompleted = isSemesterCompleted(batch.getId(), semester);
+
+        return com.dypiu.nba.dto.SemesterReadinessDto.builder()
+                .programmeBatchId(batch.getId())
+                .batchName(batch.getName())
+                .semester(semester)
+                .status(isCompleted ? "COMPLETED" : (allocationApproved ? "ALLOCATION_APPROVED" : "DRAFT"))
+                .isCompleted(isCompleted)
+                .canComplete(true)
+                .courseCount(offerings.size())
+                .readyCourseCount(readyCount)
+                .warnings(warnings)
+                .build();
+    }
+
+    private boolean isCourseAtrApprovedInternal(String batchCourseId) {
+        if (batchCourseId == null || batchCourseId.isBlank()) return false;
+        ApprovalRequest atrReq = approvalRequestRepository.findAll().stream()
+                .filter(a -> a.getType() == ApprovalType.COURSE_ATR && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
+                .max(LATEST_APPROVAL_COMPARATOR)
+                .orElse(null);
+        if (atrReq != null) return atrReq.getStatus() == ApprovalStatus.APPROVED;
+        List<CourseAtr> atrs = courseAtrRepository.findByProgrammeBatchCourseId(batchCourseId);
+        return !atrs.isEmpty() && atrs.stream().allMatch(a -> a.getStatus() == CourseAtrStatus.APPROVED);
+    }
+
+    @Transactional
+    public Map<String, Object> completeSemester(String programmeBatchId, Integer semester, String reason) {
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        CurrentUserScope scope = getScope();
+        if (scope == null || (!scope.isHod() && !scope.isDirector() && !scope.isIqac())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Only HOD or higher authority can complete a semester.");
+        }
+        enforceBatchScope(batch.getId());
+
+        if ("GRADUATED".equalsIgnoreCase(batch.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify semester on GRADUATED batch.");
+        }
+
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId())
+                .stream()
+                .filter(o -> Objects.equals(o.getSemester(), semester))
+                .toList();
+
+        if (offerings.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No courses found for Semester " + semester);
+        }
+
+        for (ProgrammeBatchCourse off : offerings) {
+            off.setStatus("COMPLETED");
+            off.setUpdatedAt(ZonedDateTime.now());
+            programmeBatchCourseRepository.save(off);
+        }
+
+        String actorName = (scope.getEmail() != null) ? scope.getEmail() : (scope.getUsername() != null ? scope.getUsername() : scope.getName());
+        if (auditLogService != null) {
+            auditLogService.recordSuccess(
+                    com.dypiu.nba.audit.AuditAction.UPDATE,
+                    com.dypiu.nba.audit.ResourceType.PROGRAMME_BATCH,
+                    batch.getId(),
+                    "SEMESTER_" + semester + "_ACTIVE",
+                    "SEMESTER_" + semester + "_COMPLETED",
+                    reason != null && !reason.isBlank() ? reason : "Semester " + semester + " completed by HOD",
+                    Map.of("semester", semester, "completedBy", actorName != null ? actorName : "")
+            );
+        }
+
+        return Map.of(
+                "success", true,
+                "message", "Semester " + semester + " completed successfully.",
+                "programmeBatchId", batch.getId(),
+                "semester", semester,
+                "status", "COMPLETED"
+        );
+    }
+
+    @Transactional
+    public Map<String, Object> reopenSemester(String programmeBatchId, Integer semester, String reason) {
+        if (reason == null || reason.trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A mandatory reason is required to reopen a completed semester.");
+        }
+
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        CurrentUserScope scope = getScope();
+        if (scope == null || (!scope.isHod() && !scope.isDirector() && !scope.isIqac())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Only HOD or higher authority can reopen a semester.");
+        }
+        enforceBatchScope(batch.getId());
+
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId())
+                .stream()
+                .filter(o -> Objects.equals(o.getSemester(), semester))
+                .toList();
+
+        for (ProgrammeBatchCourse off : offerings) {
+            off.setStatus("ACTIVE");
+            off.setUpdatedAt(ZonedDateTime.now());
+            programmeBatchCourseRepository.save(off);
+        }
+
+        String actorName = (scope.getEmail() != null) ? scope.getEmail() : (scope.getUsername() != null ? scope.getUsername() : scope.getName());
+        if (auditLogService != null) {
+            auditLogService.recordSuccess(
+                    com.dypiu.nba.audit.AuditAction.UPDATE,
+                    com.dypiu.nba.audit.ResourceType.PROGRAMME_BATCH,
+                    batch.getId(),
+                    "SEMESTER_" + semester + "_COMPLETED",
+                    "SEMESTER_" + semester + "_REOPENED",
+                    reason.trim(),
+                    Map.of("semester", semester, "reopenedBy", actorName != null ? actorName : "", "reason", reason.trim())
+            );
+        }
+
+        return Map.of(
+                "success", true,
+                "message", "Semester " + semester + " reopened successfully.",
+                "programmeBatchId", batch.getId(),
+                "semester", semester,
+                "status", "NOT_COMPLETED"
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSemestersStatusOverview(String programmeBatchId) {
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        int durationYears = batch.getDurationYears() != null ? batch.getDurationYears() : 4;
+        int maxSemesters = durationYears * 2;
+
+        List<ProgrammeBatchCourse> allOfferings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId());
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int sem = 1; sem <= maxSemesters; sem++) {
+            final int currentSem = sem;
+            List<ProgrammeBatchCourse> semOfferings = allOfferings.stream()
+                    .filter(o -> Objects.equals(o.getSemester(), currentSem))
+                    .toList();
+
+            boolean isCompleted = isSemesterCompleted(batch.getId(), currentSem);
+            String semKey = "allocation-" + batch.getId() + "-sem-" + currentSem;
+            boolean isAllocApproved = isAllocationApproved(semKey);
+
+            String allocStatus = "DRAFT";
+            ApprovalRequest req = approvalRequestRepository.findAll().stream()
+                    .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && semKey.equalsIgnoreCase(a.getResourceId()))
+                    .max(LATEST_APPROVAL_COMPARATOR)
+                    .orElse(null);
+            if (req != null) {
+                allocStatus = req.getStatus() != null ? req.getStatus().name() : "DRAFT";
+            }
+
+            String status;
+            if (isCompleted) {
+                status = "COMPLETED";
+            } else if (isAllocApproved) {
+                status = "ALLOCATION_APPROVED";
+            } else if (req != null && (req.getStatus() == ApprovalStatus.SUBMITTED || req.getStatus() == ApprovalStatus.PENDING || req.getStatus() == ApprovalStatus.PENDING_APPROVAL)) {
+                status = "SUBMITTED_FOR_VERIFICATION";
+            } else if (req != null && (req.getStatus() == ApprovalStatus.REVISION_REQUESTED || req.getStatus() == ApprovalStatus.NEEDS_REVISION)) {
+                status = "REVISION_REQUESTED";
+            } else if (!semOfferings.isEmpty()) {
+                status = "DRAFT";
+            } else {
+                status = "EMPTY";
+            }
+
+            Map<String, Object> semMap = new LinkedHashMap<>();
+            semMap.put("semester", currentSem);
+            semMap.put("status", status);
+            semMap.put("isCompleted", isCompleted);
+            semMap.put("allocationApproved", isAllocApproved);
+            semMap.put("allocationStatus", allocStatus);
+            semMap.put("courseCount", semOfferings.size());
+            result.add(semMap);
+        }
+        return result;
     }
 
     private static final java.util.Comparator<ApprovalRequest> LATEST_APPROVAL_COMPARATOR = (a, b) -> {
@@ -3885,13 +4203,14 @@ public class AcademicService {
 
     public boolean isAllocationApproved(String masterProgrammeId) {
         if (masterProgrammeId == null || masterProgrammeId.isBlank()) return false;
-        String progId = masterProgrammeId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
+        String clean = masterProgrammeId.trim();
+        String progId = clean.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
         return approvalRequestRepository.findAll().stream()
                 .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
-                        && (progId.equalsIgnoreCase(a.getMasterProgrammeId())
+                        && (clean.equalsIgnoreCase(a.getResourceId())
                         || ("allocation-" + progId).equalsIgnoreCase(a.getResourceId())
                         || progId.equalsIgnoreCase(a.getResourceId())
-                        || (a.getResourceId() != null && a.getResourceId().toLowerCase().contains(progId.toLowerCase()))))
+                        || (progId.equalsIgnoreCase(a.getMasterProgrammeId()) && (a.getResourceId() == null || !a.getResourceId().contains("-sem-")))))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
                 .orElse(false);

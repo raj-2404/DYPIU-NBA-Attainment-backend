@@ -740,6 +740,51 @@ public class AcademicController {
         return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("ProgrammeBatch deleted").build());
     }
 
+    // --- Semester Lifecycle ---
+    @GetMapping({"/programme-batches/{id}/semesters/status", "/batches/{id}/semesters/status"})
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSemestersStatusOverview(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.<List<Map<String, Object>>>builder()
+                .success(true)
+                .data(academicService.getSemestersStatusOverview(id))
+                .build());
+    }
+
+    @GetMapping({"/programme-batches/{id}/semesters/{semester}/readiness", "/batches/{id}/semesters/{semester}/readiness"})
+    public ResponseEntity<ApiResponse<com.dypiu.nba.dto.SemesterReadinessDto>> getSemesterReadiness(
+            @PathVariable String id,
+            @PathVariable Integer semester) {
+        return ResponseEntity.ok(ApiResponse.<com.dypiu.nba.dto.SemesterReadinessDto>builder()
+                .success(true)
+                .data(academicService.getSemesterReadiness(id, semester))
+                .build());
+    }
+
+    @PostMapping({"/programme-batches/{id}/semesters/{semester}/complete", "/batches/{id}/semesters/{semester}/complete"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> completeSemester(
+            @PathVariable String id,
+            @PathVariable Integer semester,
+            @RequestBody(required = false) Map<String, String> payload) {
+        String reason = (payload != null) ? payload.get("reason") : null;
+        return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
+                .success(true)
+                .message("Semester completed successfully.")
+                .data(academicService.completeSemester(id, semester, reason))
+                .build());
+    }
+
+    @PostMapping({"/programme-batches/{id}/semesters/{semester}/reopen", "/batches/{id}/semesters/{semester}/reopen"})
+    public ResponseEntity<ApiResponse<Map<String, Object>>> reopenSemester(
+            @PathVariable String id,
+            @PathVariable Integer semester,
+            @RequestBody(required = false) Map<String, String> payload) {
+        String reason = (payload != null) ? payload.get("reason") : null;
+        return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
+                .success(true)
+                .message("Semester reopened successfully.")
+                .data(academicService.reopenSemester(id, semester, reason))
+                .build());
+    }
+
     // --- Programme-Batch ATR ---
     @GetMapping("/programme-batches/{programmeBatchId}/atr")
     public ResponseEntity<ApiResponse<com.dypiu.nba.dto.ProgrammeAtrReportDto>> getProgrammeBatchAtr(

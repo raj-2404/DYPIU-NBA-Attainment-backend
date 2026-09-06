@@ -342,8 +342,9 @@ public class ApprovedStateImmutabilityIntegrationTest {
         assertEquals(HttpStatus.OK, draftRes.getStatusCode());
 
         // 2. Approve Course Allocation (by HOD)
-        approvalService.verifyStatus("allocation-" + programme.getId(), "allocationStatus", "APPROVED", "Allocation approved by HOD", hod.getName());
-        assertTrue(approvalService.isAllocationApproved(programme.getId()));
+        String sem1Key = "allocation-" + batch.getId() + "-sem-1";
+        approvalService.verifyStatus(sem1Key, "allocationStatus", "APPROVED", "Allocation approved by HOD", hod.getName());
+        assertTrue(approvalService.isAllocationApproved(batch.getId(), 1));
 
         // 3. Attempt mutation while APPROVED -> MUST BE REJECTED WITH 409 CONFLICT
         ResponseEntity<ApiResponse> conflictRes = restTemplate.exchange(
@@ -355,8 +356,8 @@ public class ApprovedStateImmutabilityIntegrationTest {
         assertEquals(HttpStatus.CONFLICT, conflictRes.getStatusCode());
 
         // 4. Request Revision
-        approvalService.requestRevisionStatus("allocation-" + programme.getId(), "allocationStatus", "REVISION_REQUESTED", "Change coordinator assignment", hod.getName());
-        assertFalse(approvalService.isAllocationApproved(programme.getId()));
+        approvalService.requestRevisionStatus(sem1Key, "allocationStatus", "REVISION_REQUESTED", "Change coordinator assignment", hod.getName());
+        assertFalse(approvalService.isAllocationApproved(batch.getId(), 1));
 
         // 5. Modification allowed after revision request
         ResponseEntity<ApiResponse> modRes = restTemplate.exchange(

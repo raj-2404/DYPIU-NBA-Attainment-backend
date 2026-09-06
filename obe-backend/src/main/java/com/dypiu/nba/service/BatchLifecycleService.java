@@ -25,6 +25,7 @@ public class BatchLifecycleService {
     private final DepartmentRepository departmentRepository;
     private final CurrentUserScopeService currentUserScopeService;
     private final AuditLogService auditLogService;
+    private final com.dypiu.nba.repository.ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     private void enforceBatchScope(ProgrammeBatch batch, CurrentUserScope scope) {
         if (scope == null || scope.isIqac()) return;
@@ -84,6 +85,34 @@ public class BatchLifecycleService {
             return batch.getEditingWindowUntil() != null && !batch.getEditingWindowUntil().isBefore(ZonedDateTime.now());
         }
         return true;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isSemesterCompleted(String programmeBatchId, Integer semester) {
+        if (programmeBatchId == null || semester == null) return false;
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElse(null);
+        if (batch == null) return false;
+        java.util.List<com.dypiu.nba.entity.ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId())
+                .stream()
+                .filter(o -> java.util.Objects.equals(o.getSemester(), semester))
+                .toList();
+        if (offerings.isEmpty()) return false;
+        return offerings.stream().allMatch(o -> "COMPLETED".equalsIgnoreCase(o.getStatus()));
+    }
+
+    @Transactional(readOnly = true)
+    public void enforceSemesterEditability(String programmeBatchId, Integer semester) {
+        enforceBatchEditability(programmeBatchId);
+        if (semester != null && isSemesterCompleted(programmeBatchId, semester)) {
+            ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                    .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                    .orElse(null);
+            String batchName = batch != null ? batch.getName() : programmeBatchId;
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot modify data: Semester " + semester + " of Programme batch '" + batchName + "' is COMPLETED and locked.");
+        }
     }
 
     @Transactional(readOnly = true)

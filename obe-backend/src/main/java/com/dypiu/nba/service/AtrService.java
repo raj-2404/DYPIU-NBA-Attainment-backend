@@ -179,6 +179,15 @@ public class AtrService {
 
     private boolean isCourseAllocationApproved(ProgrammeBatchCourse offering) {
         if (offering == null) return false;
+        if (offering.getProgrammeBatchId() != null && offering.getSemester() != null) {
+            String semKey = "allocation-" + offering.getProgrammeBatchId().trim() + "-sem-" + offering.getSemester();
+            boolean semApproved = approvalRequestRepository.findAll().stream()
+                    .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (semKey.equalsIgnoreCase(a.getResourceId()) || semKey.equalsIgnoreCase(a.getProgrammeBatchId())))
+                    .max(LATEST_APPROVAL_COMPARATOR)
+                    .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
+                    .orElse(false);
+            if (semApproved) return true;
+        }
         String progId = null;
         if (offering.getMasterCourseId() != null) {
             MasterCourse c = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
