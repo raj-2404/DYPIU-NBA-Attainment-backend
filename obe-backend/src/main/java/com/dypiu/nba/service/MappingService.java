@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -39,6 +40,21 @@ public class MappingService {
         }
     }
 
+    private static final java.util.Comparator<ApprovalRequest> LATEST_APPROVAL_COMPARATOR = (a, b) -> {
+        ZonedDateTime ta = a.getUpdatedAt() != null ? a.getUpdatedAt() : (a.getApprovedAt() != null ? a.getApprovedAt() : (a.getSubmittedAt() != null ? a.getSubmittedAt() : a.getCreatedAt()));
+        ZonedDateTime tb = b.getUpdatedAt() != null ? b.getUpdatedAt() : (b.getApprovedAt() != null ? b.getApprovedAt() : (b.getSubmittedAt() != null ? b.getSubmittedAt() : b.getCreatedAt()));
+        if (ta != null && tb != null) {
+            int cmp = ta.compareTo(tb);
+            if (cmp != 0) return cmp;
+        }
+        if (ta == null && tb != null) return -1;
+        if (ta != null && tb == null) return 1;
+        if (a.getId() != null && b.getId() != null) {
+            return a.getId().compareTo(b.getId());
+        }
+        return 0;
+    };
+
     private boolean isCourseAllocationApproved(ProgrammeBatchCourse offering) {
         if (offering == null) return false;
         String progId = null;
@@ -55,10 +71,14 @@ public class MappingService {
             }
         }
         if (progId == null || progId.isBlank()) return false;
-        final String targetProgId = progId;
+        final String targetProgId = progId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
         return approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (targetProgId.equalsIgnoreCase(a.getMasterProgrammeId()) || ("allocation-" + targetProgId).equalsIgnoreCase(a.getResourceId())))
-                .max(java.util.Comparator.comparing(ApprovalRequest::getUpdatedAt, java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
+                        && (targetProgId.equalsIgnoreCase(a.getMasterProgrammeId())
+                        || ("allocation-" + targetProgId).equalsIgnoreCase(a.getResourceId())
+                        || targetProgId.equalsIgnoreCase(a.getResourceId())
+                        || (a.getResourceId() != null && a.getResourceId().toLowerCase().contains(targetProgId.toLowerCase()))))
+                .max(LATEST_APPROVAL_COMPARATOR)
                 .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
                 .orElse(false);
     }

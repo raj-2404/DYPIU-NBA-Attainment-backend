@@ -419,6 +419,7 @@ public class DashboardController {
         List<ProgrammeBatchCourse> allOfferings = programmeBatchCourseRepository.findAll();
         List<ProgrammeBatchCourse> assignedOfferings = allOfferings.stream()
                 .filter(o -> user != null && o.getCourseCoordinatorId() != null && java.util.Objects.equals(o.getCourseCoordinatorId(), user.getId()))
+                .filter(o -> scope == null || !scope.isFaculty() || academicService.isCourseAllocationApproved(o))
                 .collect(Collectors.toList());
 
         ProgrammeBatchCourse targetOffering = null;
@@ -428,13 +429,13 @@ public class DashboardController {
                         (o.getMasterCourseId() != null && o.getMasterCourseId().equalsIgnoreCase(effectiveOfferingOrMasterCourseId.trim())) || 
                         (o.getId() != null && o.getId().equalsIgnoreCase(effectiveOfferingOrMasterCourseId.trim())));
                 if (!assignedToMasterCourse) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not assigned to this MasterCourse / MasterCourse Offering.");
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not assigned to this MasterCourse / MasterCourse Offering or allocation is not approved yet.");
                 }
             }
             targetOffering = programmeBatchCourseRepository.findByMasterCourseId(effectiveOfferingOrMasterCourseId.trim()).stream()
-                    .filter(o -> scope == null || !scope.isFaculty() || assignedOfferings.contains(o))
-                    .findFirst()
-                    .orElse(null);
+                .filter(o -> scope == null || !scope.isFaculty() || assignedOfferings.contains(o))
+                .findFirst()
+                .orElse(null);
             if (targetOffering == null) {
                 targetOffering = programmeBatchCourseRepository.findById(effectiveOfferingOrMasterCourseId.trim()).orElse(null);
             }

@@ -2762,9 +2762,9 @@ public class AcademicService {
             List<ProgrammeBatchCourse> allOfferings = programmeBatchCourseRepository.findAll();
             Set<String> assignedMasterCourseIds = allOfferings.stream()
                     .filter(o -> {
-                        boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()))
-                                ;
-                        return isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
+                        boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
+                        boolean isAssigned = isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
+                        return isAssigned && isCourseAllocationApproved(o);
                     })
                     .map(ProgrammeBatchCourse::getMasterCourseId)
                     .filter(Objects::nonNull)
@@ -2790,6 +2790,18 @@ public class AcademicService {
         System.out.println("[AcademicService] getCoursesByMasterProgramme called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         enforceProgrammeScope(masterProgrammeId);
         List<MasterCourse> list = masterCourseRepository.findByMasterProgrammeId(masterProgrammeId);
+        CurrentUserScope scope = getScope();
+
+        if (scope != null && scope.isFaculty()) {
+            list = list.stream().filter(c -> {
+                List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(c.getId());
+                return offerings.stream().anyMatch(o -> {
+                    boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
+                    boolean isAssigned = isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
+                    return isAssigned && isCourseAllocationApproved(o);
+                });
+            }).collect(Collectors.toList());
+        }
         
         if (programmeBatchId != null && !programmeBatchId.isBlank()) {
             for (MasterCourse course : list) {
@@ -3826,12 +3838,31 @@ public class AcademicService {
         return res;
     }
 
+    private static final java.util.Comparator<ApprovalRequest> LATEST_APPROVAL_COMPARATOR = (a, b) -> {
+        ZonedDateTime ta = a.getUpdatedAt() != null ? a.getUpdatedAt() : (a.getApprovedAt() != null ? a.getApprovedAt() : (a.getSubmittedAt() != null ? a.getSubmittedAt() : a.getCreatedAt()));
+        ZonedDateTime tb = b.getUpdatedAt() != null ? b.getUpdatedAt() : (b.getApprovedAt() != null ? b.getApprovedAt() : (b.getSubmittedAt() != null ? b.getSubmittedAt() : b.getCreatedAt()));
+        if (ta != null && tb != null) {
+            int cmp = ta.compareTo(tb);
+            if (cmp != 0) return cmp;
+        }
+        if (ta == null && tb != null) return -1;
+        if (ta != null && tb == null) return 1;
+        if (a.getId() != null && b.getId() != null) {
+            return a.getId().compareTo(b.getId());
+        }
+        return 0;
+    };
+
     public boolean isAllocationApproved(String masterProgrammeId) {
         if (masterProgrammeId == null || masterProgrammeId.isBlank()) return false;
-        String progId = masterProgrammeId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "");
+        String progId = masterProgrammeId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
         return approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (progId.equalsIgnoreCase(a.getMasterProgrammeId()) || progId.equalsIgnoreCase(a.getMasterProgrammeId()) || masterProgrammeId.equalsIgnoreCase(a.getResourceId())))
-                .max(java.util.Comparator.comparing(ApprovalRequest::getUpdatedAt, java.util.Comparator.nullsFirst(java.util.Comparator.naturalOrder())))
+                .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
+                        && (progId.equalsIgnoreCase(a.getMasterProgrammeId())
+                        || ("allocation-" + progId).equalsIgnoreCase(a.getResourceId())
+                        || progId.equalsIgnoreCase(a.getResourceId())
+                        || (a.getResourceId() != null && a.getResourceId().toLowerCase().contains(progId.toLowerCase()))))
+                .max(LATEST_APPROVAL_COMPARATOR)
                 .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
                 .orElse(false);
     }
