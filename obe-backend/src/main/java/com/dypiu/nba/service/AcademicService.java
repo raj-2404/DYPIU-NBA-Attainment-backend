@@ -2540,12 +2540,27 @@ public class AcademicService {
         Long userId = user != null ? user.getId() : (scope != null ? scope.getUserId() : null);
         String userName = user != null ? user.getName() : (scope != null ? scope.getName() : null);
 
-        List<ProgrammeBatchCourse> list = (programmeBatchId != null && !programmeBatchId.isBlank())
-                ? programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId.trim())
-                : programmeBatchCourseRepository.findAll();
+        List<ProgrammeBatchCourse> list;
+        try {
+            list = (programmeBatchId != null && !programmeBatchId.isBlank())
+                    ? programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId.trim())
+                    : programmeBatchCourseRepository.findAll();
+        } catch (Exception e) {
+            System.err.println("[AcademicService] Error querying programme batch courses for batch " + programmeBatchId + ": " + e.getMessage());
+            return Collections.emptyList();
+        }
+
+        if (list == null || list.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        boolean requireApprovalCheck = (scope == null || scope.isFaculty());
 
         List<ProgrammeBatchCourse> filtered = list.stream()
                 .filter(o -> {
+                    if (requireApprovalCheck && !isCourseAllocationApproved(o)) {
+                        return false;
+                    }
                     if (userId != null && o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), userId)) {
                         return true;
                     }

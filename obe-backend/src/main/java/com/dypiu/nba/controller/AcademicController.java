@@ -839,7 +839,7 @@ public class AcademicController {
             @RequestParam(required = false) String programmeBatchId,
             @RequestParam(required = false) String coordinatorEmail,
             @RequestParam(required = false) String courseCoordinatorEmail) {
-        String targetProgrammeBatchId = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchId : programmeBatchId;
+        String targetProgrammeBatchId = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchId : null;
         String effectiveEmail = (coordinatorEmail != null && !coordinatorEmail.isBlank()) ? coordinatorEmail : courseCoordinatorEmail;
         List<com.dypiu.nba.entity.ProgrammeBatchCourse> courses;
         if (effectiveEmail != null && !effectiveEmail.isBlank()) {
@@ -849,7 +849,25 @@ public class AcademicController {
         }
         return ResponseEntity.ok(ApiResponse.<List<com.dypiu.nba.entity.ProgrammeBatchCourse>>builder()
                 .success(true)
-                .data(courses)
+                .data(courses != null ? courses : Collections.emptyList())
+                .build());
+    }
+
+    @GetMapping({"/programme-batch-courses/batch/{batchId}", "/programme-batch-courses/batches/{batchId}"})
+    public ResponseEntity<ApiResponse<List<com.dypiu.nba.entity.ProgrammeBatchCourse>>> getProgrammeBatchCoursesByBatchId(
+            @PathVariable String batchId,
+            @RequestParam(required = false) String coordinatorEmail,
+            @RequestParam(required = false) String courseCoordinatorEmail) {
+        String effectiveEmail = (coordinatorEmail != null && !coordinatorEmail.isBlank()) ? coordinatorEmail : courseCoordinatorEmail;
+        List<com.dypiu.nba.entity.ProgrammeBatchCourse> courses;
+        if (effectiveEmail != null && !effectiveEmail.isBlank()) {
+            courses = academicService.getProgrammeBatchCoursesByCoordinatorEmail(effectiveEmail, batchId);
+        } else {
+            courses = academicService.getProgrammeBatchCoursesByBatch(batchId);
+        }
+        return ResponseEntity.ok(ApiResponse.<List<com.dypiu.nba.entity.ProgrammeBatchCourse>>builder()
+                .success(true)
+                .data(courses != null ? courses : Collections.emptyList())
                 .build());
     }
 

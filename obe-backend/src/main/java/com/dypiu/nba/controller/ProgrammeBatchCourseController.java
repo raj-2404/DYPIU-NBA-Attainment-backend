@@ -34,7 +34,7 @@ public class ProgrammeBatchCourseController {
             @RequestParam(required = false) String masterCourseId,
             @RequestParam(required = false) String coordinatorEmail,
             @RequestParam(required = false) String courseCoordinatorEmail) {
-        String targetProgrammeBatchId = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchId : programmeBatchId;
+        String targetProgrammeBatchId = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchId : null;
         String effectiveEmail = (coordinatorEmail != null && !coordinatorEmail.isBlank()) ? coordinatorEmail : courseCoordinatorEmail;
         List<ProgrammeBatchCourse> courses;
         if (effectiveEmail != null && !effectiveEmail.isBlank()) {
@@ -44,7 +44,25 @@ public class ProgrammeBatchCourseController {
         }
         return ResponseEntity.ok(ApiResponse.<List<ProgrammeBatchCourse>>builder()
                 .success(true)
-                .data(courses)
+                .data(courses != null ? courses : java.util.Collections.emptyList())
+                .build());
+    }
+
+    @GetMapping({"/batch/{batchId}", "/batches/{batchId}"})
+    public ResponseEntity<ApiResponse<List<ProgrammeBatchCourse>>> getProgrammeBatchCoursesByBatchId(
+            @PathVariable String batchId,
+            @RequestParam(required = false) String coordinatorEmail,
+            @RequestParam(required = false) String courseCoordinatorEmail) {
+        String effectiveEmail = (coordinatorEmail != null && !coordinatorEmail.isBlank()) ? coordinatorEmail : courseCoordinatorEmail;
+        List<ProgrammeBatchCourse> courses;
+        if (effectiveEmail != null && !effectiveEmail.isBlank()) {
+            courses = academicService.getProgrammeBatchCoursesByCoordinatorEmail(effectiveEmail, batchId);
+        } else {
+            courses = academicService.getProgrammeBatchCoursesByBatch(batchId);
+        }
+        return ResponseEntity.ok(ApiResponse.<List<ProgrammeBatchCourse>>builder()
+                .success(true)
+                .data(courses != null ? courses : java.util.Collections.emptyList())
                 .build());
     }
 
