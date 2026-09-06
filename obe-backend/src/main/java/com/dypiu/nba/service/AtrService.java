@@ -1046,15 +1046,31 @@ public class AtrService {
             }
         }
 
-        boolean isConcluded = batchLifecycleService.isBatchConcluded(batch);
-        String batchStatusStr = batch.getStatus() != null ? batch.getStatus() : "ACTIVE";
-        boolean isUnlocked = isConcluded;
-        String unlockReason = isConcluded
-                ? "Programme batch has been completed/graduated by HOD. Programme ATR is unlocked for editing and submission."
-                : "Programme ATR is locked. The HOD has not marked this programme batch as COMPLETED or GRADUATED yet. (Current Batch Status: " + batchStatusStr + ")";
+        String batchStatusStr = batch.getStatus() != null ? batch.getStatus().trim().toUpperCase() : "ACTIVE";
+        boolean isCompleted = "COMPLETED".equals(batchStatusStr);
+        boolean isGraduated = "GRADUATED".equals(batchStatusStr);
+        boolean isConcluded = isCompleted || isGraduated;
 
-        String status = existingAtr.map(a -> a.getStatus() != null ? a.getStatus().name() : (isConcluded ? "DRAFT" : "LOCKED_PENDING_COMPLETION"))
-                .orElse(isConcluded ? "DRAFT" : "LOCKED_PENDING_COMPLETION");
+        boolean isUnlocked;
+        String unlockReason;
+        String defaultStatus;
+
+        if (isCompleted) {
+            isUnlocked = true;
+            unlockReason = "Programme batch has been completed by HOD. Programme ATR is unlocked for editing and submission.";
+            defaultStatus = "DRAFT";
+        } else if (isGraduated) {
+            isUnlocked = false;
+            unlockReason = "Programme batch is GRADUATED. All attainment, survey, and Programme ATR records are permanently locked.";
+            defaultStatus = "APPROVED";
+        } else {
+            isUnlocked = false;
+            unlockReason = "Programme ATR is locked. The HOD has not marked this programme batch as COMPLETED or GRADUATED yet. (Current Batch Status: " + batchStatusStr + ")";
+            defaultStatus = "LOCKED_PENDING_COMPLETION";
+        }
+
+        String status = existingAtr.map(a -> a.getStatus() != null ? a.getStatus().name() : defaultStatus)
+                .orElse(defaultStatus);
         String patrId = existingAtr.map(ProgrammeAtr::getId).orElse(null);
 
         return ProgrammeAtrReportDto.builder()
@@ -1083,21 +1099,29 @@ public class AtrService {
         if (dto == null || dto.getBatch() == null || dto.getBatch().getId() == null || dto.getBatch().getId().isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Programme batch is required for Programme ATR.");
         }
-        String programmeBatchId = dto.getBatch().getId();
-        ProgrammeBatch batch = programmeBatchRepository.findByIdAndDeletedAtIsNull(programmeBatchId)
-                .orElseThrow(() -> new ResourceNotFoundException("Programme Batch not found: " + programmeBatchId));
+        String requestedBatchId = dto.getBatch().getId();
+        ProgrammeBatch batch = programmeBatchRepository.findByIdAndDeletedAtIsNull(requestedBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(requestedBatchId.trim()))
+                .orElseThrow(() -> new ResourceNotFoundException("Programme Batch not found: " + requestedBatchId));
         
-        String progId = batch.getMasterProgrammeId();
+        final String targetBatchId = batch.getId();
+        final String progId = batch.getMasterProgrammeId();
         enforceProgrammeScope(progId);
-        enforceBatchScope(programmeBatchId);
+        enforceBatchScope(targetBatchId);
 
-        if (!batchLifecycleService.isBatchConcluded(batch)) {
-            String bStatus = batch.getStatus() != null ? batch.getStatus() : "ACTIVE";
+        String bStatus = batch.getStatus() != null ? batch.getStatus().trim().toUpperCase() : "ACTIVE";
+        if ("ACTIVE".equalsIgnoreCase(bStatus) || "INITIALIZED".equalsIgnoreCase(bStatus)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Programme ATR is locked. Programme batch '" + batch.getName() + "' has not been completed by the HOD yet. (Current status: " + bStatus + ")");
         }
+        if ("GRADUATED".equalsIgnoreCase(bStatus)) {
+            if (batch.getEditingWindowUntil() == null || batch.getEditingWindowUntil().isBefore(ZonedDateTime.now())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Cannot modify Programme ATR: Programme batch '" + batch.getName() + "' is GRADUATED and permanently locked.");
+            }
+        }
 
-        if (approvalService != null && approvalService.isProgrammeAtrApproved(programmeBatchId)) {
+        if (approvalService != null && approvalService.isProgrammeAtrApproved(targetBatchId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify approved Programme ATR. A revision must be requested first.");
         }
 
@@ -1108,19 +1132,19 @@ public class AtrService {
             dto.getProgramme().setName(batch.getProgrammeName());
             dto.getProgramme().setCode(batch.getProgrammeCode());
         }
-        dto.getBatch().setId(programmeBatchId);
+        dto.getBatch().setId(targetBatchId);
         dto.getBatch().setName(batch.getName());
         dto.getBatch().setStartYear(batch.getStartYear() != null ? String.valueOf(batch.getStartYear()) : "");
         dto.getBatch().setEndYear(batch.getEndYear() != null ? String.valueOf(batch.getEndYear()) : "");
         dto.setReportType("PROGRAMME_ATR");
 
-        ProgrammeAtr atr = programmeAtrRepository.findByProgrammeBatchId(programmeBatchId)
+        ProgrammeAtr atr = programmeAtrRepository.findByProgrammeBatchId(targetBatchId)
                 .orElseGet(() -> ProgrammeAtr.builder()
                         .id("patr-" + UUID.randomUUID().toString().substring(0, 8))
-                        .programmeBatchId(programmeBatchId)
+                        .programmeBatchId(targetBatchId)
                         .build());
 
-        if (atr.getStatus() == ProgrammeAtrStatus.APPROVED || atr.getStatus() == ProgrammeAtrStatus.SUBMITTED_FOR_VERIFICATION || (approvalService != null && approvalService.isProgrammeAtrApproved(programmeBatchId))) {
+        if (atr.getStatus() == ProgrammeAtrStatus.APPROVED || atr.getStatus() == ProgrammeAtrStatus.SUBMITTED_FOR_VERIFICATION || (approvalService != null && approvalService.isProgrammeAtrApproved(targetBatchId))) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Cannot modify submitted or approved Programme ATR. A revision must be requested first.");
         }
@@ -1145,7 +1169,7 @@ public class AtrService {
         atr.setUpdatedAt(ZonedDateTime.now());
         programmeAtrRepository.save(atr);
 
-        return getProgrammeAtrReport(progId, programmeBatchId);
+        return getProgrammeAtrReport(progId, targetBatchId);
     }
 
     @Transactional
@@ -1153,24 +1177,32 @@ public class AtrService {
         System.out.println("[AtrService] submitProgrammeAtr called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId + " | submittedBy: " + submittedBy);
         
         ProgrammeBatch batch = programmeBatchRepository.findByIdAndDeletedAtIsNull(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
                 .orElseThrow(() -> new ResourceNotFoundException("Programme Batch not found: " + programmeBatchId));
-        String progId = batch.getMasterProgrammeId();
+        final String targetBatchId = batch.getId();
+        final String progId = batch.getMasterProgrammeId();
         
         enforceProgrammeScope(progId);
-        enforceBatchScope(programmeBatchId);
+        enforceBatchScope(targetBatchId);
 
-        if (!batchLifecycleService.isBatchConcluded(batch)) {
-            String bStatus = batch.getStatus() != null ? batch.getStatus() : "ACTIVE";
+        String bStatus = batch.getStatus() != null ? batch.getStatus().trim().toUpperCase() : "ACTIVE";
+        if ("ACTIVE".equalsIgnoreCase(bStatus) || "INITIALIZED".equalsIgnoreCase(bStatus)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Programme ATR is locked. Programme batch '" + batch.getName() + "' has not been completed by the HOD yet. (Current status: " + bStatus + ")");
         }
+        if ("GRADUATED".equalsIgnoreCase(bStatus)) {
+            if (batch.getEditingWindowUntil() == null || batch.getEditingWindowUntil().isBefore(ZonedDateTime.now())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Cannot submit Programme ATR: Programme batch '" + batch.getName() + "' is GRADUATED and permanently locked.");
+            }
+        }
 
-        ProgrammeAtr atr = programmeAtrRepository.findByProgrammeBatchId(programmeBatchId)
+        ProgrammeAtr atr = programmeAtrRepository.findByProgrammeBatchId(targetBatchId)
                 .orElseGet(() -> {
-                    ProgrammeAtrReportDto initialDto = getProgrammeAtrReport(progId, programmeBatchId);
+                    ProgrammeAtrReportDto initialDto = getProgrammeAtrReport(progId, targetBatchId);
                     ProgrammeAtr created = ProgrammeAtr.builder()
                             .id("patr-" + UUID.randomUUID().toString().substring(0, 8))
-                            .programmeBatchId(programmeBatchId)
+                            .programmeBatchId(targetBatchId)
                             .status(ProgrammeAtrStatus.DRAFT)
                             .build();
                     try {

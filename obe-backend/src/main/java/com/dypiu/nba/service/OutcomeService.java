@@ -172,12 +172,17 @@ public class OutcomeService {
         }
     }
 
-        private void enforceBatchOrProgrammeScope(String programmeOrProgrammeBatchId) {
+    private void enforceBatchOrProgrammeScope(String programmeOrProgrammeBatchId) {
         if (programmeOrProgrammeBatchId == null || programmeOrProgrammeBatchId.isBlank()) return;
         if (programmeBatchRepository.existsById(programmeOrProgrammeBatchId)) {
             enforceBatchScope(programmeOrProgrammeBatchId);
         } else {
-            enforceProgrammeScope(programmeOrProgrammeBatchId);
+            java.util.Optional<com.dypiu.nba.entity.ProgrammeBatch> batchByName = programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeOrProgrammeBatchId.trim());
+            if (batchByName.isPresent()) {
+                enforceBatchScope(batchByName.get().getId());
+            } else {
+                enforceProgrammeScope(programmeOrProgrammeBatchId);
+            }
         }
     }
 
@@ -366,6 +371,10 @@ public class OutcomeService {
         if (programmeOrProgrammeBatchId == null || programmeOrProgrammeBatchId.isBlank()) return null;
         if (programmeBatchRepository.existsById(programmeOrProgrammeBatchId)) {
             return programmeOrProgrammeBatchId;
+        }
+        java.util.Optional<com.dypiu.nba.entity.ProgrammeBatch> batchByName = programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeOrProgrammeBatchId.trim());
+        if (batchByName.isPresent()) {
+            return batchByName.get().getId();
         }
         List<ProgrammeBatch> batches = programmeBatchRepository.findByMasterProgrammeId(programmeOrProgrammeBatchId);
         if (!batches.isEmpty()) {

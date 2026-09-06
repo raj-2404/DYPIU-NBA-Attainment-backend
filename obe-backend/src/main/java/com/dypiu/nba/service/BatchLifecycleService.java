@@ -51,15 +51,22 @@ public class BatchLifecycleService {
     public void enforceBatchEditability(String programmeBatchId) {
         if (programmeBatchId == null || programmeBatchId.isBlank()) return;
         ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Batch not found: " + programmeBatchId));
 
         if ("INACTIVE".equalsIgnoreCase(batch.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify data for an INACTIVE batch.");
         }
 
-        if ("GRADUATED".equalsIgnoreCase(batch.getStatus()) || "COMPLETED".equalsIgnoreCase(batch.getStatus())) {
+        if ("COMPLETED".equalsIgnoreCase(batch.getStatus())) {
             if (batch.getEditingWindowUntil() == null || batch.getEditingWindowUntil().isBefore(ZonedDateTime.now())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify data for a " + batch.getStatus().toUpperCase() + " batch unless an authorized reopening window is currently active.");
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify batch data: Programme batch '" + batch.getName() + "' is COMPLETED. All course allocations, outcomes, mappings, and attainment data are locked unless a reopening window is currently active. Only Programme ATR editing is currently permitted.");
+            }
+        }
+
+        if ("GRADUATED".equalsIgnoreCase(batch.getStatus())) {
+            if (batch.getEditingWindowUntil() == null || batch.getEditingWindowUntil().isBefore(ZonedDateTime.now())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify batch data: Programme batch '" + batch.getName() + "' is GRADUATED. All records across this batch are permanently locked unless a reopening window is currently active.");
             }
         }
     }
@@ -67,7 +74,9 @@ public class BatchLifecycleService {
     @Transactional(readOnly = true)
     public boolean isBatchEditable(String programmeBatchId) {
         if (programmeBatchId == null || programmeBatchId.isBlank()) return true;
-        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId).orElse(null);
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElse(null);
         if (batch == null) return true;
 
         if ("INACTIVE".equalsIgnoreCase(batch.getStatus())) return false;
@@ -87,7 +96,9 @@ public class BatchLifecycleService {
     @Transactional(readOnly = true)
     public boolean isBatchConcluded(String programmeBatchId) {
         if (programmeBatchId == null || programmeBatchId.isBlank()) return false;
-        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId).orElse(null);
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElse(null);
         return isBatchConcluded(batch);
     }
 

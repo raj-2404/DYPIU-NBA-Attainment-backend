@@ -175,6 +175,7 @@ public class AcademicService {
         if (scope == null || scope.isIqac()) return;
         if (programmeBatchId == null || programmeBatchId.isBlank()) return;
         ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
                 .orElseThrow(() -> new ResourceNotFoundException("ProgrammeBatch not found: " + programmeBatchId));
 
         if (scope.isFaculty()) {
@@ -433,11 +434,18 @@ public class AcademicService {
     @Transactional(readOnly = true)
     public List<ProgrammeBatchCourse> getProgrammeBatchCoursesByBatch(String programmeBatchId) {
         System.out.println("[AcademicService] getProgrammeBatchCoursesByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
+        String targetBatchId = programmeBatchId;
+        if (targetBatchId != null && !targetBatchId.isBlank()) {
+            java.util.Optional<ProgrammeBatch> bByName = programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(targetBatchId.trim());
+            if (bByName.isPresent()) {
+                targetBatchId = bByName.get().getId();
+            }
+        }
         CurrentUserScope scope = getScope();
         List<ProgrammeBatchCourse> offerings;
         if (scope != null && scope.isFaculty()) {
-            List<ProgrammeBatchCourse> list = (programmeBatchId != null && !programmeBatchId.isBlank())
-                    ? programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId)
+            List<ProgrammeBatchCourse> list = (targetBatchId != null && !targetBatchId.isBlank())
+                    ? programmeBatchCourseRepository.findByProgrammeBatchId(targetBatchId)
                     : programmeBatchCourseRepository.findAll();
             offerings = list.stream()
                     .filter(o -> {
@@ -446,9 +454,9 @@ public class AcademicService {
                         return isAssigned && isCourseAllocationApproved(o);
                     })
                     .collect(Collectors.toList());
-        } else if (programmeBatchId != null && !programmeBatchId.isBlank()) {
-            enforceBatchScope(programmeBatchId);
-            offerings = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+        } else if (targetBatchId != null && !targetBatchId.isBlank()) {
+            enforceBatchScope(targetBatchId);
+            offerings = programmeBatchCourseRepository.findByProgrammeBatchId(targetBatchId);
         } else if (scope != null && scope.isProgrammeCoordinator()) {
             List<ProgrammeBatch> batches = getAllBatches();
             Set<String> bIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
@@ -2362,9 +2370,9 @@ public class AcademicService {
         }
 
         // 2. Resolve effective query parameters based on role scope
-        String effectiveStatus = (status != null && !status.isBlank())
-                ? (status.equalsIgnoreCase("ALL") || status.equalsIgnoreCase("ANY") ? null : status.trim())
-                : "ACTIVE";
+        final String requestedStatus = (status != null && !status.isBlank()) ? status.trim() : null;
+        final boolean isAllStatus = "ALL".equalsIgnoreCase(requestedStatus) || "ANY".equalsIgnoreCase(requestedStatus);
+        final String effectiveStatus = isAllStatus ? "ALL" : requestedStatus;
 
         String targetMasterProgrammeId = (masterProgrammeId != null && !masterProgrammeId.isBlank()) ? masterProgrammeId.trim() : null;
         String targetDepartmentId = (departmentId != null && !departmentId.isBlank()) ? departmentId.trim() : null;
@@ -2421,7 +2429,7 @@ public class AcademicService {
                 targetCoordinatorEmail = cleanUserEmail;
             } else if ("COURSE_COORDINATOR".equalsIgnoreCase(role) || "FACULTY".equalsIgnoreCase(role)) {
                 return getBatchesByCourseCoordinatorEmailAndFilters(
-                        cleanUserEmail, targetMasterProgrammeId, targetDepartmentId, effectiveStatus);
+                    cleanUserEmail, targetMasterProgrammeId, targetDepartmentId, effectiveStatus);
             } else if ("HOD".equalsIgnoreCase(role)) {
                 List<Department> hodDepts = departmentRepository.findByHodEmailIgnoreCase(cleanUserEmail);
                 if (!hodDepts.isEmpty()) {
@@ -2461,8 +2469,14 @@ public class AcademicService {
                 if (filterProgId != null && !filterProgId.equalsIgnoreCase(b.getMasterProgrammeId())) {
                     return false;
                 }
-                if (effectiveStatus != null && b.getStatus() != null && !effectiveStatus.equalsIgnoreCase(b.getStatus())) {
-                    return false;
+                if (requestedStatus == null) {
+                    if ("INACTIVE".equalsIgnoreCase(b.getStatus())) {
+                        return false;
+                    }
+                } else if (!isAllStatus) {
+                    if (b.getStatus() != null && !requestedStatus.equalsIgnoreCase(b.getStatus())) {
+                        return false;
+                    }
                 }
                 if (scope.getUserId() != null && b.getCoordinatorId() != null && Objects.equals(b.getCoordinatorId(), scope.getUserId())) {
                     return true;
@@ -2644,6 +2658,7 @@ public class AcademicService {
     public ProgrammeBatch getBatchById(String id) {
         if (id == null || id.isBlank()) return null;
         ProgrammeBatch batch = programmeBatchRepository.findByIdAndDeletedAtIsNull(id)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(id.trim()))
                 .orElseThrow(() -> new ResourceNotFoundException("ProgrammeBatch not found with id: " + id));
         enforceBatchScope(batch.getId());
         if (batch.getMasterProgrammeId() != null) {

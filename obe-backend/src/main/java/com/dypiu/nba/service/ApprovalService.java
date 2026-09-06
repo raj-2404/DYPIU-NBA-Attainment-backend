@@ -565,6 +565,27 @@ public class ApprovalService {
                 .comments("Approved successfully")
                 .build());
 
+        if (updated.getType() == ApprovalType.PROGRAMME_ATR) {
+            String targetBatchId = updated.getProgrammeBatchId() != null ? updated.getProgrammeBatchId() : updated.getResourceId();
+            if (targetBatchId != null) {
+                targetBatchId = targetBatchId.replace("prog-atr-", "").replace("programme-atr-", "").replace("prog_atr-", "").replace("prog_atr_", "").replace("prog-atr", "").replace("programme-atr", "");
+                final String batchIdFinal = targetBatchId;
+                programmeAtrRepository.findByProgrammeBatchId(batchIdFinal).ifPresent(patr -> {
+                    patr.setStatus(com.dypiu.nba.entity.ProgrammeAtrStatus.APPROVED);
+                    patr.setVerifiedBy(actor.actorName());
+                    programmeAtrRepository.save(patr);
+                });
+                programmeBatchRepository.findById(batchIdFinal)
+                        .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(batchIdFinal.trim()))
+                        .ifPresent(b -> {
+                            if ("COMPLETED".equalsIgnoreCase(b.getStatus())) {
+                                b.setStatus("GRADUATED");
+                                programmeBatchRepository.save(b);
+                            }
+                        });
+            }
+        }
+
         return updated;
     }
 
@@ -1246,6 +1267,16 @@ public class ApprovalService {
             if (patr != null) {
                 if (status == ApprovalStatus.APPROVED) {
                     patr.setStatus(com.dypiu.nba.entity.ProgrammeAtrStatus.APPROVED);
+                    if (targetProgrammeBatchId != null) {
+                        programmeBatchRepository.findById(targetProgrammeBatchId)
+                                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(targetProgrammeBatchId.trim()))
+                                .ifPresent(b -> {
+                                    if ("COMPLETED".equalsIgnoreCase(b.getStatus())) {
+                                        b.setStatus("GRADUATED");
+                                        programmeBatchRepository.save(b);
+                                    }
+                                });
+                    }
                 } else if (status == ApprovalStatus.REJECTED || status == ApprovalStatus.REVISION_REQUESTED) {
                     patr.setStatus(com.dypiu.nba.entity.ProgrammeAtrStatus.REVISION_REQUESTED);
                 } else {

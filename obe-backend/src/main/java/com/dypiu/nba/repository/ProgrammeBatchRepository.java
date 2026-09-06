@@ -40,7 +40,11 @@ public interface ProgrammeBatchRepository extends JpaRepository<ProgrammeBatch, 
         LEFT JOIN MasterProgramme mp ON b.masterProgrammeId = mp.id
         WHERE b.deletedAt IS NULL
           AND (mp.deletedAt IS NULL OR mp.id IS NULL)
-          AND (cast(:status as String) IS NULL OR b.status IS NULL OR b.status = cast(:status as String))
+          AND (
+               (cast(:status as String) IS NULL AND (b.status IS NULL OR UPPER(b.status) <> 'INACTIVE'))
+               OR (cast(:status as String) = 'ALL')
+               OR (b.status = cast(:status as String))
+              )
           AND (cast(:masterProgrammeId as String) IS NULL OR b.masterProgrammeId = cast(:masterProgrammeId as String))
           AND (cast(:departmentId as String) IS NULL OR mp.departmentId = cast(:departmentId as String))
           AND (cast(:coordinatorEmail as String) IS NULL 
@@ -61,8 +65,11 @@ public interface ProgrammeBatchRepository extends JpaRepository<ProgrammeBatch, 
         LEFT JOIN MasterProgramme mp ON b.masterProgrammeId = mp.id
         WHERE b.deletedAt IS NULL
           AND (mp.deletedAt IS NULL OR mp.id IS NULL)
-          AND (cast(:status as String) IS NULL OR b.status IS NULL OR b.status = cast(:status as String))
-          AND (cast(:masterProgrammeId as String) IS NULL OR b.masterProgrammeId = cast(:masterProgrammeId as String))
+          AND (
+               (cast(:status as String) IS NULL AND (b.status IS NULL OR UPPER(b.status) <> 'INACTIVE'))
+               OR (cast(:status as String) = 'ALL')
+               OR (b.status = cast(:status as String))
+              )
           AND (mp.departmentId IN :departmentIds)
           AND (cast(:coordinatorEmail as String) IS NULL 
                OR (b.coordinatorEmail IS NOT NULL AND b.coordinatorEmail = cast(:coordinatorEmail as String))
@@ -109,6 +116,8 @@ public interface ProgrammeBatchRepository extends JpaRepository<ProgrammeBatch, 
     Optional<ProgrammeBatch> findFirstByMasterProgrammeIdAndStartYear(String masterProgrammeId, Integer startYear);
 
     Optional<ProgrammeBatch> findFirstByMasterProgrammeIdAndNameIgnoreCase(String masterProgrammeId, String name);
+
+    Optional<ProgrammeBatch> findFirstByNameIgnoreCaseAndDeletedAtIsNull(String name);
 
     boolean existsByMasterProgrammeIdAndStartYearAndIdNotAndDeletedAtIsNull(String masterProgrammeId, Integer startYear, String id);
 
