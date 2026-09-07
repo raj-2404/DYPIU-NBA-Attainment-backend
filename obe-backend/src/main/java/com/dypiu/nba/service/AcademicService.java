@@ -3669,13 +3669,18 @@ public class AcademicService {
 
     @Transactional
     public Map<String, Object> allocateCourses(String masterProgrammeId, String programmeBatchId, List<Map<String, Object>> allocations) {
-        return allocateCourses(masterProgrammeId, programmeBatchId, allocations, true);
+        return allocateCourses(masterProgrammeId, programmeBatchId, null, allocations, true);
     }
 
     @Transactional
     public Map<String, Object> allocateCourses(String masterProgrammeId, String programmeBatchId, List<Map<String, Object>> allocations, boolean submit) {
-        Integer targetSemester = null;
-        if (allocations != null && !allocations.isEmpty()) {
+        return allocateCourses(masterProgrammeId, programmeBatchId, null, allocations, submit);
+    }
+
+    @Transactional
+    public Map<String, Object> allocateCourses(String masterProgrammeId, String programmeBatchId, Integer explicitSemester, List<Map<String, Object>> allocations, boolean submit) {
+        Integer targetSemester = explicitSemester;
+        if (targetSemester == null && allocations != null && !allocations.isEmpty()) {
             for (Map<String, Object> item : allocations) {
                 if (item.get("semester") != null) {
                     try {

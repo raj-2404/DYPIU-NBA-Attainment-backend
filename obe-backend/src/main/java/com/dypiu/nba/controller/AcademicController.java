@@ -1124,13 +1124,39 @@ public class AcademicController {
     }
 
     // --- ProgrammeBatch Course Allocation ---
-    @PostMapping({"/master-courses/allocate", "/courses/allocate", "/programme-batch-courses/allocate", "/allocations"})
-    public ResponseEntity<ApiResponse<Map<String, Object>>> allocateCourses(@RequestBody Map<String, Object> body) {
-        String masterProgrammeId = body != null && body.get("masterProgrammeId") != null ? body.get("masterProgrammeId").toString().trim() : null;
-        if (masterProgrammeId == null || masterProgrammeId.isBlank()) {
-            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "MasterProgramme ID is required for course allocation.");
+    @PostMapping({
+            "/programme-batches/{programmeBatchId}/semesters/{semester}/allocate",
+            "/programme-batches/{programmeBatchId}/allocate",
+            "/batches/{programmeBatchId}/semesters/{semester}/allocate",
+            "/batches/{programmeBatchId}/allocate",
+            "/master-courses/allocate",
+            "/courses/allocate",
+            "/programme-batch-courses/allocate",
+            "/allocations"
+    })
+    public ResponseEntity<ApiResponse<Map<String, Object>>> allocateCourses(
+            @PathVariable(required = false) String programmeBatchId,
+            @PathVariable(required = false) Integer semester,
+            @RequestBody(required = false) Map<String, Object> body) {
+
+        String pBatchId = programmeBatchId;
+        if ((pBatchId == null || pBatchId.isBlank()) && body != null && body.get("programmeBatchId") != null) {
+            pBatchId = body.get("programmeBatchId").toString().trim();
         }
-        String programmeBatchId = body != null && body.get("programmeBatchId") != null ? body.get("programmeBatchId").toString().trim() : null;
+
+        Integer targetSemester = semester;
+        if (targetSemester == null && body != null && body.get("semester") != null) {
+            try {
+                targetSemester = Integer.parseInt(body.get("semester").toString().trim());
+            } catch (Exception ignored) {}
+        }
+
+        String masterProgrammeId = body != null && body.get("masterProgrammeId") != null ? body.get("masterProgrammeId").toString().trim() : null;
+
+        if ((masterProgrammeId == null || masterProgrammeId.isBlank()) && (pBatchId == null || pBatchId.isBlank())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Programme Batch ID or MasterProgramme ID is required for course allocation.");
+        }
+
         boolean submit = body != null && Boolean.TRUE.equals(body.get("submit"));
         List<Map<String, Object>> allocations = body != null && body.get("allocations") instanceof List
                 ? (List<Map<String, Object>>) body.get("allocations")
@@ -1138,8 +1164,8 @@ public class AcademicController {
 
         return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
                 .success(true)
-                .message(submit ? "MasterCourse allocations saved and submitted for review." : "MasterCourse allocations saved successfully.")
-                .data(academicService.allocateCourses(masterProgrammeId, programmeBatchId, allocations, submit))
+                .message(submit ? "Course allocations saved and submitted for review." : "Course allocations saved successfully.")
+                .data(academicService.allocateCourses(masterProgrammeId, pBatchId, targetSemester, allocations, submit))
                 .build());
     }
 
