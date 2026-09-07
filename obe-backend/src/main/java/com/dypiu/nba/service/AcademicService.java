@@ -198,30 +198,36 @@ public class AcademicService {
         CurrentUserScope scope = getScope();
         if (scope == null || scope.isIqac()) return;
         if (masterCourseId == null || masterCourseId.isBlank()) return;
-        MasterCourse course = masterCourseRepository.findById(masterCourseId)
-                .orElseThrow(() -> new ResourceNotFoundException("MasterCourse not found: " + masterCourseId));
 
-        if (scope.isFaculty()) {
-            List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
-            boolean hasAssigned = offerings.stream().anyMatch(o -> {
-                boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
-                return isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
-            });
-            if (!hasAssigned) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not assigned to this MasterCourse.");
-            }
-            boolean hasApproved = offerings.stream().anyMatch(o -> {
-                boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
-                boolean isFacultyAssigned = isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
-                return isFacultyAssigned && isCourseAllocationApproved(o);
-            });
-            if (!hasApproved) {
-                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Course allocation for this course has not been approved by the HOD yet.");
-            }
+        ProgrammeBatchCourse pbc = programmeBatchCourseRepository.findById(masterCourseId).orElse(null);
+        if (pbc != null) {
+            enforceProgrammeBatchCourseScope(pbc.getId());
             return;
         }
 
-        enforceProgrammeScope(course.getMasterProgrammeId());
+        MasterCourse course = masterCourseRepository.findById(masterCourseId).orElse(null);
+        if (course != null) {
+            if (scope.isFaculty()) {
+                List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
+                boolean hasAssigned = offerings.stream().anyMatch(o -> {
+                    boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
+                    return isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
+                });
+                if (!hasAssigned) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not assigned to this Course.");
+                }
+                boolean hasApproved = offerings.stream().anyMatch(o -> {
+                    boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
+                    boolean isFacultyAssigned = isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
+                    return isFacultyAssigned && isCourseAllocationApproved(o);
+                });
+                if (!hasApproved) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Course allocation for this course has not been approved by the HOD yet.");
+                }
+                return;
+            }
+            enforceProgrammeScope(course.getMasterProgrammeId());
+        }
     }
 
     public boolean isCourseAllocationApproved(ProgrammeBatchCourse offering) {
@@ -3798,88 +3804,101 @@ public class AcademicService {
 
         if (allocations != null) {
             for (Map<String, Object> item : allocations) {
-                String masterCourseId = item.get("masterCourseId") != null ? item.get("masterCourseId").toString() : null;
-                String email = item.get("coordinatorEmail") != null ? item.get("coordinatorEmail").toString() : "";
-                String name = item.get("courseCoordinatorName") != null ? item.get("courseCoordinatorName").toString() : (item.get("coordinator") != null ? item.get("coordinator").toString() : "");
+                String rawCourseId = null;
+                if (item.get("programmeBatchCourseId") != null) rawCourseId = item.get("programmeBatchCourseId").toString().trim();
+                else if (item.get("id") != null) rawCourseId = item.get("id").toString().trim();
+                else if (item.get("courseOfferingId") != null) rawCourseId = item.get("courseOfferingId").toString().trim();
+                else if (item.get("courseId") != null) rawCourseId = item.get("courseId").toString().trim();
+                else if (item.get("masterCourseId") != null) rawCourseId = item.get("masterCourseId").toString().trim();
 
-                if (masterCourseId != null) {
-                    enforceCourseScope(masterCourseId);
-                    MasterCourse course = masterCourseRepository.findById(masterCourseId).orElse(null);
-                    if (course != null) {
-                        course.setCoordinator(name);
-                        course.setFaculty(name);
-                        course.setAssignedFaculty(name + " (" + email + ")");
-                        masterCourseRepository.save(course);
-                    }
+                String email = item.get("coordinatorEmail") != null ? item.get("coordinatorEmail").toString().trim() : (item.get("courseCoordinatorEmail") != null ? item.get("courseCoordinatorEmail").toString().trim() : "");
+                String name = item.get("courseCoordinatorName") != null ? item.get("courseCoordinatorName").toString().trim() : (item.get("coordinator") != null ? item.get("coordinator").toString().trim() : "");
+                String code = item.get("courseCode") != null ? item.get("courseCode").toString().trim() : (item.get("code") != null ? item.get("code").toString().trim() : null);
+                String cname = item.get("courseName") != null ? item.get("courseName").toString().trim() : (item.get("name") != null ? item.get("name").toString().trim() : null);
+                Integer credits = null;
+                if (item.get("credits") != null) {
+                    try { credits = Integer.parseInt(item.get("credits").toString().trim()); } catch (Exception ignored) {}
+                }
+                String courseType = item.get("courseType") != null ? item.get("courseType").toString().trim() : "THEORY";
 
-                    if (targetBatchId != null && !targetBatchId.isBlank()) {
-                        // Resolve the coordinator user
-                        User coordinatorUser = null;
-                        if (!email.isBlank()) {
-                            coordinatorUser = userRepository.findByEmail(email).orElse(null);
-                        }
-                        
-                        // Check if ProgrammeBatchCourse already exists for masterCourseId + targetBatchId
-                        List<ProgrammeBatchCourse> existingOfferings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
-                        ProgrammeBatchCourse targetOffering = existingOfferings.stream()
+                String semStr = item.get("semester") != null ? item.get("semester").toString().trim() : null;
+                Integer parsedSem = (semStr != null && semStr.matches("\\d+")) ? Integer.parseInt(semStr) : targetSemester;
+
+                if (rawCourseId != null && !rawCourseId.isBlank()) {
+                    enforceCourseScope(rawCourseId);
+                }
+
+                // Resolve coordinator user if email is present
+                User coordinatorUser = null;
+                if (!email.isBlank()) {
+                    coordinatorUser = userRepository.findByEmail(email).orElse(null);
+                }
+
+                // 1. Try to find existing ProgrammeBatchCourse
+                ProgrammeBatchCourse targetOffering = null;
+                if (rawCourseId != null && !rawCourseId.isBlank()) {
+                    targetOffering = programmeBatchCourseRepository.findById(rawCourseId).orElse(null);
+                }
+
+                if (targetOffering == null && targetBatchId != null) {
+                    if (rawCourseId != null) {
+                        targetOffering = programmeBatchCourseRepository.findByMasterCourseId(rawCourseId).stream()
                                 .filter(o -> targetBatchId.equals(o.getProgrammeBatchId()))
                                 .findFirst()
                                 .orElse(null);
-                                
-                        String semStr = item.get("semester") != null ? item.get("semester").toString() : (course != null ? course.getSemester() : null);
-                        Integer parsedSem = (semStr != null && semStr.trim().matches("\\d+")) ? Integer.parseInt(semStr.trim()) : targetSemester;
+                    }
+                    if (targetOffering == null && code != null && !code.isBlank()) {
+                        targetOffering = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(targetBatchId).stream()
+                                .filter(o -> code.equalsIgnoreCase(o.getCode()) || code.equalsIgnoreCase(o.getCourseCodeOverride()))
+                                .findFirst()
+                                .orElse(null);
+                    }
+                }
 
-                        if (targetOffering == null) {
-                            // Create exactly one ProgrammeBatchCourse
-                            targetOffering = ProgrammeBatchCourse.builder()
-                                     .id("off-" + UUID.randomUUID().toString().substring(0, 8))
-                                    .masterCourseId(masterCourseId)
-                                    .programmeBatchId(targetBatchId)
-                                    .code(course != null ? course.getCode() : (item.get("code") != null ? item.get("code").toString() : (item.get("courseCode") != null ? item.get("courseCode").toString() : null)))
-                                    .name(course != null ? course.getName() : (item.get("name") != null ? item.get("name").toString() : (item.get("courseName") != null ? item.get("courseName").toString() : null)))
-                                    .credits(course != null && course.getCredits() != null ? course.getCredits() : (item.get("credits") != null ? Integer.parseInt(item.get("credits").toString()) : 3))
-                                    .courseType(course != null && course.getCourseType() != null ? course.getCourseType() : (item.get("courseType") != null ? item.get("courseType").toString() : "THEORY"))
-                                    .semester(parsedSem)
-                                    .courseCoordinatorName(name)
-                                    .assignedFaculty(name + " (" + email + ")")
-                                    .status("ACTIVE")
-                                    .build();
-                        } else {
-                            if (course != null) {
-                                if (targetOffering.getCode() == null) targetOffering.setCode(course.getCode());
-                                if (targetOffering.getName() == null) targetOffering.setName(course.getName());
-                                if (targetOffering.getCredits() == null) targetOffering.setCredits(course.getCredits());
-                                if (targetOffering.getCourseType() == null) targetOffering.setCourseType(course.getCourseType());
-                            }
-                            if (item.get("semester") != null || course != null && course.getSemester() != null) {
-                                targetOffering.setSemester(parsedSem);
-                            }
+                // 2. If targetOffering found, update it directly
+                if (targetOffering != null) {
+                    if (code != null && !code.isBlank()) targetOffering.setCode(code);
+                    if (cname != null && !cname.isBlank()) targetOffering.setName(cname);
+                    if (credits != null) targetOffering.setCredits(credits);
+                    if (courseType != null) targetOffering.setCourseType(courseType);
+                    if (parsedSem != null) targetOffering.setSemester(parsedSem);
+                    if (!name.isBlank()) targetOffering.setCourseCoordinatorName(name);
+                    if (!email.isBlank() || !name.isBlank()) targetOffering.setAssignedFaculty(name + (email.isBlank() ? "" : " (" + email + ")"));
+                    if (coordinatorUser != null) {
+                        targetOffering.setCourseCoordinatorId(coordinatorUser.getId());
+                    }
+                    targetOffering.setUpdatedAt(ZonedDateTime.now());
+                    programmeBatchCourseRepository.save(targetOffering);
+                } else if (targetBatchId != null && !targetBatchId.isBlank()) {
+                    // 3. Create new ProgrammeBatchCourse directly under the batch
+                    String newId = (rawCourseId != null && rawCourseId.startsWith("off-")) ? rawCourseId : ("off-" + UUID.randomUUID().toString().substring(0, 8));
+                    targetOffering = ProgrammeBatchCourse.builder()
+                            .id(newId)
+                            .masterCourseId(rawCourseId)
+                            .programmeBatchId(targetBatchId)
+                            .code(code != null ? code : "COURSE")
+                            .name(cname != null ? cname : "Course")
+                            .credits(credits != null ? credits : 3)
+                            .courseType(courseType != null ? courseType : "THEORY")
+                            .semester(parsedSem != null ? parsedSem : targetSemester)
+                            .courseCoordinatorName(name)
+                            .assignedFaculty(name + (email.isBlank() ? "" : " (" + email + ")"))
+                            .courseCoordinatorId(coordinatorUser != null ? coordinatorUser.getId() : null)
+                            .status("ACTIVE")
+                            .build();
+                    programmeBatchCourseRepository.save(targetOffering);
+                }
+
+                // 4. Optionally update master_courses if a record exists with that ID (backward compatibility)
+                if (rawCourseId != null) {
+                    MasterCourse mc = masterCourseRepository.findById(rawCourseId).orElse(null);
+                    if (mc != null) {
+                        if (!name.isBlank()) {
+                            mc.setCoordinator(name);
+                            mc.setFaculty(name);
+                            mc.setAssignedFaculty(name + (email.isBlank() ? "" : " (" + email + ")"));
                         }
-                        
-                        // Update coordinator info
-                        targetOffering.setCourseCoordinatorName(name);
-                        targetOffering.setAssignedFaculty(name + " (" + email + ")");
-                        if (coordinatorUser != null) {
-                            targetOffering.setCourseCoordinatorId(coordinatorUser.getId());
-                        }
-                        
-                        programmeBatchCourseRepository.save(targetOffering);
-                    } else {
-                        // Fallback to update existing offerings if targetBatchId is not provided
-                        String semStr = item.get("semester") != null ? item.get("semester").toString() : (course != null ? course.getSemester() : null);
-                        Integer parsedSem = (semStr != null && semStr.trim().matches("\\d+")) ? Integer.parseInt(semStr.trim()) : null;
-                        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
-                        for (ProgrammeBatchCourse off : offerings) {
-                            off.setCourseCoordinatorName(name);
-                            off.setAssignedFaculty(name + " (" + email + ")");
-                            if (parsedSem != null) {
-                                off.setSemester(parsedSem);
-                            }
-                            if (!email.isBlank()) {
-                                userRepository.findByEmail(email).ifPresent(u -> off.setCourseCoordinatorId(u.getId()));
-                            }
-                            programmeBatchCourseRepository.save(off);
-                        }
+                        masterCourseRepository.save(mc);
                     }
                 }
             }

@@ -1123,8 +1123,8 @@ public class AcademicController {
                 .build());
     }
 
-    // --- ProgrammeBatch MasterCourse Allocation ---
-    @PostMapping("/master-courses/allocate")
+    // --- ProgrammeBatch Course Allocation ---
+    @PostMapping({"/master-courses/allocate", "/courses/allocate", "/programme-batch-courses/allocate", "/allocations"})
     public ResponseEntity<ApiResponse<Map<String, Object>>> allocateCourses(@RequestBody Map<String, Object> body) {
         String masterProgrammeId = body != null && body.get("masterProgrammeId") != null ? body.get("masterProgrammeId").toString().trim() : null;
         if (masterProgrammeId == null || masterProgrammeId.isBlank()) {
