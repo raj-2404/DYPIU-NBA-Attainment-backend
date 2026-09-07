@@ -48,11 +48,7 @@ public class Phase5RuntimeFalsificationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -91,7 +87,7 @@ public class Phase5RuntimeFalsificationTest {
     private MasterProgramme programmeB;
     private ProgrammeBatch batchA;
     private ProgrammeBatch batchB;
-    private MasterCourse courseA;
+    private ProgrammeBatchCourse courseA;
     private ProgrammeBatchCourse offeringA;
 
     @BeforeEach
@@ -151,11 +147,11 @@ public class Phase5RuntimeFalsificationTest {
                 .durationYears(4)
                 .build());
 
-        courseA = masterCourseRepository.save(MasterCourse.builder().id("crs-p5-cs301-" + suffix).masterProgrammeId(programmeA.getId())
+        courseA = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA.getId()).semester(1).id("crs-p5-cs301-" + suffix).masterProgrammeId(programmeA.getId())
                 .code("CS 301")
                 .name("Database Management Systems")
                 .courseType("THEORY")
-                .semester("5")
+                .semester(5)
                 .credits(4)
                 .build());
 

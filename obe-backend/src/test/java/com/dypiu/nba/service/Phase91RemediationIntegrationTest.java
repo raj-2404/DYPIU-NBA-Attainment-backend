@@ -47,11 +47,7 @@ public class Phase91RemediationIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -72,7 +68,7 @@ public class Phase91RemediationIntegrationTest {
     private MasterProgramme progA;
     private ProgrammeBatch batch2024;
     private ProgrammeBatch batch2028;
-    private MasterCourse courseCN;
+    private ProgrammeBatchCourse courseCN;
     private ProgrammeBatchCourse offering2024;
     private ProgrammeBatchCourse offering2028;
 
@@ -126,7 +122,7 @@ public class Phase91RemediationIntegrationTest {
                 .status("ACTIVE")
                 .build());
 
-        courseCN = masterCourseRepository.save(MasterCourse.builder()
+        courseCN = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch2024.getId()).semester(1)
                 .id("crs-cn-" + uid)
                 .masterProgrammeId(progA.getId())
                 .name("Computer Networks")
@@ -137,6 +133,7 @@ public class Phase91RemediationIntegrationTest {
         offering2024 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("off-2024-" + uid)
                 .masterCourseId(courseCN.getId())
+                .code("CS401")
                 .programmeBatchId(batch2024.getId())
                 .semester(5)
                 .courseCoordinatorId(101L)
@@ -146,6 +143,7 @@ public class Phase91RemediationIntegrationTest {
         offering2028 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("off-2028-" + uid)
                 .masterCourseId(courseCN.getId())
+                .code("CS401")
                 .programmeBatchId(batch2028.getId())
                 .semester(5)
                 .courseCoordinatorId(202L)

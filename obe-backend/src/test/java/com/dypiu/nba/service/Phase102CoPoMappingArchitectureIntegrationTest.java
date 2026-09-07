@@ -52,11 +52,7 @@ public class Phase102CoPoMappingArchitectureIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -85,7 +81,7 @@ public class Phase102CoPoMappingArchitectureIntegrationTest {
     private MasterProgramme prog;
     private ProgrammeBatch batch2024;
     private ProgrammeBatch batch2028;
-    private MasterCourse masterCourse;
+    private ProgrammeBatchCourse masterCourse;
     private ProgrammeBatchCourse offering2024;
     private ProgrammeBatchCourse offering2028;
     private CourseOutcome co2024_1;
@@ -135,7 +131,7 @@ public class Phase102CoPoMappingArchitectureIntegrationTest {
                 .status("ACTIVE")
                 .build());
 
-        masterCourse = masterCourseRepository.save(MasterCourse.builder()
+        masterCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch2024.getId()).semester(1)
                 .id("mc-os-" + uid)
                 .masterProgrammeId(prog.getId())
                 .name("Operating Systems")

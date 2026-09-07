@@ -76,11 +76,7 @@ public class Phase55ReportManagementApiIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -96,7 +92,7 @@ public class Phase55ReportManagementApiIntegrationTest {
     private Department dept;
     private MasterProgramme prog;
     private ProgrammeBatch batch;
-    private MasterCourse course;
+    private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse offering;
 
     @BeforeEach
@@ -132,7 +128,7 @@ public class Phase55ReportManagementApiIntegrationTest {
                 .endYear(2025)
                 .build());
 
-        course = masterCourseRepository.save(MasterCourse.builder()
+        course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("mc-" + uid)
                 .masterProgrammeId(prog.getId())
                 .code("CS401-" + uid)

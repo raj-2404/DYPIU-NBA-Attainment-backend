@@ -109,11 +109,7 @@ public class AcademicSoftDeleteIntegrationTest {
 
     @Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Test
+@Test
     void testSoftDeleteAndRecreateProgrammeBatch() {
         // 1. Create a MasterProgramme
         MasterProgramme prog = MasterProgramme.builder()
@@ -191,19 +187,13 @@ public class AcademicSoftDeleteIntegrationTest {
                 .build();
         ProgrammeBatch savedBatch = academicService.saveBatch(batch);
 
-        MasterCourse course = MasterCourse.builder()
-                .id("crs-data-struct")
-                .code("CS201")
-                .name("Data Structures")
-                .masterProgrammeId(savedProg.getId())
-                .credits(4)
-                .build();
-        masterCourseRepository.save(course);
+        
+        
 
         // 2. Create Course Offering
         com.dypiu.nba.dto.CourseOfferingRequestDto req = com.dypiu.nba.dto.CourseOfferingRequestDto.builder()
                 .programmeBatchId(savedBatch.getId())
-                .masterCourseId(course.getId())
+                .code("CS201").name("Data Structures").credits(4).courseType("CORE")
                 .semester(3)
                 .build();
         ProgrammeBatchCourse offering = academicService.createCourseOffering(req);
@@ -218,7 +208,7 @@ public class AcademicSoftDeleteIntegrationTest {
         // 4. Recreate Course Offering for same batch and master course
         com.dypiu.nba.dto.CourseOfferingRequestDto req2 = com.dypiu.nba.dto.CourseOfferingRequestDto.builder()
                 .programmeBatchId(savedBatch.getId())
-                .masterCourseId(course.getId())
+                .code("CS201").name("Data Structures").credits(4).courseType("CORE")
                 .semester(3)
                 .courseCoordinatorName("Dr. Instructor")
                 .build();

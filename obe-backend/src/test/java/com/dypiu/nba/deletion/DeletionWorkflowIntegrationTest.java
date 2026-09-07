@@ -48,11 +48,7 @@ public class DeletionWorkflowIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -83,7 +79,7 @@ public class DeletionWorkflowIntegrationTest {
     private Department otherDept;
     private MasterProgramme programme;
     private ProgrammeBatch batch;
-    private MasterCourse course;
+    private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse batchCourse;
 
     @BeforeEach
@@ -92,7 +88,6 @@ public class DeletionWorkflowIntegrationTest {
         auditLogRepository.deleteAll();
         programmeBatchCourseRepository.deleteAll();
         programmeBatchRepository.deleteAll();
-        masterCourseRepository.deleteAll();
         masterProgrammeRepository.deleteAll();
         departmentRepository.deleteAll();
         schoolRepository.deleteAll();
@@ -140,7 +135,7 @@ public class DeletionWorkflowIntegrationTest {
                 .endYear(2028)
                 .build());
 
-        course = masterCourseRepository.save(MasterCourse.builder()
+        course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("crs-cs101-del")
                 .masterProgrammeId(programme.getId())
                 .code("CS101-DEL")
@@ -151,7 +146,7 @@ public class DeletionWorkflowIntegrationTest {
         batchCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("off-cs101-del")
                 .programmeBatchId(batch.getId())
-                .masterCourseId(course.getId())
+                .code(course.getCode()).name(course.getName()).credits(course.getCredits())
                 .semester(1)
                 .build());
 

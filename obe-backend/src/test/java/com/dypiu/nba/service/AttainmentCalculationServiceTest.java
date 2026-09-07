@@ -38,11 +38,7 @@ class AttainmentCalculationServiceTest {
 
     @Mock
     private UploadedDocumentRepository uploadedDocumentRepository;
-
-    @Mock
-    private MasterCourseRepository masterCourseRepository;
-
-    @Mock
+@Mock
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Mock

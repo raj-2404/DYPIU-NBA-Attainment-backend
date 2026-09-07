@@ -51,11 +51,7 @@ public class ApprovalWorkflowSecurityTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -68,7 +64,7 @@ public class ApprovalWorkflowSecurityTest {
     private MasterProgramme progA;
     private MasterProgramme progB;
     private ProgrammeBatch batchA;
-    private MasterCourse courseA;
+    private ProgrammeBatchCourse courseA;
     private ProgrammeBatchCourse offeringA;
 
     private User directorA;
@@ -115,7 +111,7 @@ public class ApprovalWorkflowSecurityTest {
                 .coordinatorEmail("pc.a." + salt + "@dypiu.ac.in")
                 .build());
 
-        courseA = masterCourseRepository.save(MasterCourse.builder()
+        courseA = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA.getId()).semester(1)
                 .id("crs-app-a-" + salt)
                 .code("CS" + salt)
                 .name("Data Structures A")

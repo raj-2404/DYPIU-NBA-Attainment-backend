@@ -71,11 +71,7 @@ public class CourseCoordinatorScopeSecurityTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -101,9 +97,9 @@ public class CourseCoordinatorScopeSecurityTest {
     private ProgrammeBatch batchA1;
     private ProgrammeBatch batchA2;
     private ProgrammeBatch batchB1;
-    private MasterCourse courseA1;
-    private MasterCourse courseA2;
-    private MasterCourse courseB1;
+    private ProgrammeBatchCourse courseA1;
+    private ProgrammeBatchCourse courseA2;
+    private ProgrammeBatchCourse courseB1;
 
     private ProgrammeBatchCourse offeringA1;
     private ProgrammeBatchCourse offeringA2;
@@ -220,7 +216,7 @@ public class CourseCoordinatorScopeSecurityTest {
                 .build());
 
         // 5. Courses
-        courseA1 = masterCourseRepository.save(MasterCourse.builder()
+        courseA1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA1.getId()).semester(1)
                 .id("crs-cc-a1-" + System.nanoTime())
                 .masterProgrammeId(progA1.getId())
                 .name("Data Structures")
@@ -229,7 +225,7 @@ public class CourseCoordinatorScopeSecurityTest {
                 .courseType("CORE")
                 .build());
 
-        courseA2 = masterCourseRepository.save(MasterCourse.builder()
+        courseA2 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA2.getId()).semester(1)
                 .id("crs-cc-a2-" + System.nanoTime())
                 .masterProgrammeId(progA2.getId())
                 .name("Thermodynamics")
@@ -238,7 +234,7 @@ public class CourseCoordinatorScopeSecurityTest {
                 .courseType("CORE")
                 .build());
 
-        courseB1 = masterCourseRepository.save(MasterCourse.builder()
+        courseB1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchB1.getId()).semester(1)
                 .id("crs-cc-b1-" + System.nanoTime())
                 .masterProgrammeId(progB1.getId())
                 .name("Financial Management")
@@ -766,7 +762,7 @@ public class CourseCoordinatorScopeSecurityTest {
         assertNotNull(dto);
         assertEquals(2, dto.getCurrentStep());
         assertTrue(dto.getCompletedSteps().contains("1"));
-        assertEquals(offeringA1.getId(), dto.getMasterCourseId());
+        assertEquals(offeringA1.getId(), dto.getProgrammeBatchCourseId());
     }
 
     @Test
@@ -788,7 +784,7 @@ public class CourseCoordinatorScopeSecurityTest {
                 .endYear(2028)
                 .build());
 
-        MasterCourse unapprovedCourse = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse unapprovedCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(unapprovedBatch.getId()).semester(1)
                 .id("crs-unapproved-" + System.nanoTime())
                 .masterProgrammeId(unapprovedProg.getId())
                 .name("Artificial Intelligence")
@@ -862,7 +858,7 @@ public class CourseCoordinatorScopeSecurityTest {
                 .endYear(2028)
                 .build());
 
-        MasterCourse unapprovedCourse = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse unapprovedCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(unapprovedBatch.getId()).semester(1)
                 .id("crs-unapproved-mgmt-" + System.nanoTime())
                 .masterProgrammeId(unapprovedProg.getId())
                 .name("Robotics 101")

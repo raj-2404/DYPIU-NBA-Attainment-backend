@@ -41,7 +41,6 @@ public class AttainmentCalculationService {
     private final CourseOutcomeRepository courseOutcomeRepository;
     private final UploadedDocumentRepository uploadedDocumentRepository;
     private final StudentRepository studentRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
@@ -124,7 +123,7 @@ public class AttainmentCalculationService {
         if (programmeBatchCourseRepository.existsById(offeringOrMasterCourseId)) {
             return offeringOrMasterCourseId;
         }
-        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(offeringOrMasterCourseId);
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByCode(offeringOrMasterCourseId);
         if (!offerings.isEmpty()) {
             return offerings.get(0).getId();
         }
@@ -228,34 +227,6 @@ public class AttainmentCalculationService {
                     return;
                 }
                 return;
-            }
-        }
-
-        if (masterCourseRepository.existsById(courseOfferingOrMasterCourseId)) {
-            MasterCourse course = masterCourseRepository.findById(courseOfferingOrMasterCourseId).orElse(null);
-            if (course != null) {
-                if (scope.isFaculty()) {
-                    List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(course.getId());
-                    boolean hasAssigned = offerings.stream().anyMatch(o -> isCourseCoordinatorAssigned(o, scope.getUserId(), scope.getName(), scope.getEmail()));
-                    if (!hasAssigned) {
-                        log.debug("Course coordinator authorization failed for course {}: authenticated user [id={}, name={}, email={}]",
-                                course.getId(), scope.getUserId(), scope.getName(), scope.getEmail());
-                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You are not assigned to this Course.");
-                    }
-                    return;
-                }
-                if (scope.isProgrammeCoordinator()) {
-                    boolean matchesDirect = scope.getMasterProgrammeId() != null && scope.getMasterProgrammeId().equals(course.getMasterProgrammeId());
-                    boolean matchesBatch = false;
-                    if (scope.getEmail() != null && !scope.getEmail().isBlank()) {
-                        matchesBatch = programmeBatchRepository.findByCoordinatorEmailIgnoreCaseAndDeletedAtIsNull(scope.getEmail().trim())
-                                .stream().anyMatch(b -> course.getMasterProgrammeId().equals(b.getMasterProgrammeId()));
-                    }
-                    if (!matchesDirect && !matchesBatch) {
-                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Resource is outside your assigned programme scope.");
-                    }
-                    return;
-                }
             }
         }
     }
@@ -2352,13 +2323,12 @@ public class AttainmentCalculationService {
         List<ProgrammeAttainmentResultDto.CourseContributionRow> courseDirectAttainmentRows = new ArrayList<>();
 
         for (ProgrammeBatchCourse off : offerings) {
-            MasterCourse mc = (off.getMasterCourseId() != null) ? masterCourseRepository.findById(off.getMasterCourseId()).orElse(null) : null;
-            String courseCode = (off.getCourseCodeOverride() != null && !off.getCourseCodeOverride().isBlank())
-                    ? off.getCourseCodeOverride()
-                    : ((mc != null && mc.getCode() != null) ? mc.getCode() : off.getId());
-            String courseName = (off.getCourseNameOverride() != null && !off.getCourseNameOverride().isBlank())
-                    ? off.getCourseNameOverride()
-                    : ((mc != null && mc.getName() != null) ? mc.getName() : "Course " + courseCode);
+            String courseCode = (off.getEffectiveCourseCode() != null && !off.getEffectiveCourseCode().isBlank())
+                    ? off.getEffectiveCourseCode()
+                    : off.getId();
+            String courseName = (off.getEffectiveCourseName() != null && !off.getEffectiveCourseName().isBlank())
+                    ? off.getEffectiveCourseName()
+                    : "Course " + courseCode;
             String coordinatorName = (off.getCourseCoordinatorName() != null && !off.getCourseCoordinatorName().isBlank())
                     ? off.getCourseCoordinatorName()
                     : ((off.getAssignedFaculty() != null && !off.getAssignedFaculty().isBlank())
@@ -2366,7 +2336,7 @@ public class AttainmentCalculationService {
                     : (off.getCourseCoordinatorId() != null ? String.valueOf(off.getCourseCoordinatorId()) : ""));
             boolean isLab = (courseName != null && courseName.toLowerCase().contains("lab"))
                     || (courseCode != null && courseCode.toLowerCase().contains("lab"))
-                    || (mc != null && mc.getType() != null && mc.getType().equalsIgnoreCase("LAB"));
+                    || (off.getCourseType() != null && off.getCourseType().equalsIgnoreCase("LAB"));
 
             Map<String, Object> cAtt = null;
             try {

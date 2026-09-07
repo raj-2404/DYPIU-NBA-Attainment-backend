@@ -51,11 +51,7 @@ public class Phase5RealDataReportValidationIntegrationTest {
 
     @Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    private School schoolEngineering;
+private School schoolEngineering;
     private School schoolManagement;
     private Department deptCSE;
     private Department deptMBA;
@@ -63,7 +59,7 @@ public class Phase5RealDataReportValidationIntegrationTest {
     private MasterProgramme progMBA;
     private ProgrammeBatch batchCSE;
     private ProgrammeBatch batchMBA;
-    private MasterCourse courseDS;
+    private ProgrammeBatchCourse courseDS;
     private ProgrammeBatchCourse pbcDS;
 
     @BeforeEach
@@ -100,7 +96,7 @@ public class Phase5RealDataReportValidationIntegrationTest {
                 .endYear(2025)
                 .build());
 
-        courseDS = masterCourseRepository.save(MasterCourse.builder()
+        courseDS = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchCSE.getId()).semester(1)
                 .id("mc-cs201-" + UUID.randomUUID().toString().substring(0, 6))
                 .code("CS201")
                 .name("Data Structures and Algorithms")

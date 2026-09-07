@@ -35,11 +35,7 @@ public class AtrIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -74,7 +70,7 @@ public class AtrIntegrationTest {
         deptId = "dept-" + uid;
         masterProgrammeId = "prog-" + uid;
         programmeBatchId = "batch-" + uid;
-        masterCourseId = "crs-" + uid;
+        masterCourseId = "offering-" + uid;
         offeringId = "off-" + uid;
 
         schoolRepository.save(School.builder().id(schoolId).name("School of Tech " + uid).code("ST" + uid).build());
@@ -82,13 +78,7 @@ public class AtrIntegrationTest {
         masterProgrammeRepository.save(MasterProgramme.builder().id(masterProgrammeId).departmentId(deptId).name("B.Tech " + uid).code("BT" + uid).build());
         programmeBatchRepository.save(ProgrammeBatch.builder().id(programmeBatchId).masterProgrammeId(masterProgrammeId).name("2022-2026").startYear(2022).endYear(2026).status("ACTIVE").build());
 
-        masterCourseRepository.save(MasterCourse.builder().id(masterCourseId).masterProgrammeId(masterProgrammeId)
-                .code("CS" + uid)
-                .name("Database Systems")
-                .credits(4)
-                .courseType("THEORY")
-                .status("ACTIVE")
-                .build());
+        
         programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().id(offeringId).masterCourseId(masterCourseId).programmeBatchId(programmeBatchId).semester(4).build());
 
         // Create 2 COs

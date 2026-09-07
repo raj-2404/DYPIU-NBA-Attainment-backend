@@ -49,11 +49,7 @@ public class Phase10AttainmentReportPersistenceIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -86,7 +82,7 @@ public class Phase10AttainmentReportPersistenceIntegrationTest {
     private MasterProgramme prog;
     private ProgrammeBatch batch2024;
     private ProgrammeBatch batch2028;
-    private MasterCourse courseCN;
+    private ProgrammeBatchCourse courseCN;
     private ProgrammeBatchCourse offering2024;
     private ProgrammeBatchCourse offering2028;
     private CourseOutcome co1;
@@ -153,8 +149,18 @@ public class Phase10AttainmentReportPersistenceIntegrationTest {
                 .status("ACTIVE")
                 .build());
 
-        courseCN = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatch templateBatch = programmeBatchRepository.save(ProgrammeBatch.builder()
+                .id("batch-template-" + uid)
+                .masterProgrammeId("prog-template-" + uid)
+                .name("Template Batch")
+                .startYear(2020)
+                .endYear(2024)
+                .build());
+
+        courseCN = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("crs-cn-" + uid)
+                .programmeBatchId(templateBatch.getId())
+                .semester(1)
                 .masterProgrammeId(prog.getId())
                 .name("Computer Networks")
                 .code("CS401")
@@ -348,7 +354,7 @@ public class Phase10AttainmentReportPersistenceIntegrationTest {
         attainmentReportService.getOrCreateCourseAttainmentReport(offering2024.getId());
         attainmentReportService.getOrCreateCourseAttainmentReport(offering2028.getId());
 
-        List<CourseAttainmentReportDto> historical = attainmentReportService.getHistoricalCourseAttainmentReports(courseCN.getId());
+        List<CourseAttainmentReportDto> historical = attainmentReportService.getHistoricalCourseAttainmentReports(offering2028.getId());
 
         assertNotNull(historical);
         assertEquals(2, historical.size(), "Should discover historical reports for both offerings of the MasterCourse");

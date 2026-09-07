@@ -40,11 +40,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -105,13 +101,15 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
                 .endYear(2026)
                 .build());
 
-        MasterCourse course = masterCourseRepository.save(MasterCourse.builder()
-                .id("crs-test-" + uid)
-                .masterProgrammeId(prog.getId())
-                .name("Compiler Design")
-                .code("CS301-" + uid)
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
+                .id("crs-exam-101")
+                .programmeBatchId(batch.getId())
+                .code("CS301")
+                .name("Database Systems")
                 .credits(4)
-                .courseType("CORE")
+                .courseType("THEORY")
+                .semester(5)
+                .status("ACTIVE")
                 .build());
 
         coordinatorUser = userRepository.save(User.builder()
@@ -139,7 +137,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 1. Matched by ID
         offeringWithId = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("pbc-id-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(1)
                 .courseCoordinatorId(coordinatorUser.getId())
@@ -148,7 +146,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 2. Matched by coordinatorEmail
         offeringWithEmail = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("pbc-email-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(2)
                 .build());
@@ -157,7 +155,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 3. Matched by coordinatorName
         offeringWithName = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("pbc-name-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(3)
                 .courseCoordinatorName(coordinatorUser.getName())
@@ -166,7 +164,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 4. Matched by email stored in coordinatorName (legacy)
         offeringWithEmailInName = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("pbc-emailinname-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(4)
                 .courseCoordinatorName(coordinatorUser.getEmail().toUpperCase())
@@ -175,7 +173,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 5. Unassigned / null coordinator
         offeringUnassigned = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("pbc-none-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(5)
                 .build());
@@ -183,7 +181,7 @@ public class CourseCoordinatorExaminationAccessIntegrationTest {
         // 6. Runtime pattern (offering-8867ab03): coordinator ID/name null, assignedFaculty = email
         offeringWithAssignedFacultyOnly = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("offering-8867ab03-" + uid)
-                .masterCourseId(course.getId())
+                
                 .programmeBatchId(batch.getId())
                 .semester(6)
                 .assignedFaculty(coordinatorUser.getEmail())

@@ -39,7 +39,7 @@ public class ApprovalRequest {
     @Column(name = "programme_batch_id")
     private String programmeBatchId;
 
-    @Column(name = "master_course_id")
+    @Transient
     private String masterCourseId;
 
     @Column(name = "programme_batch_course_id")

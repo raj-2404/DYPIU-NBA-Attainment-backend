@@ -22,8 +22,11 @@ public class ProgrammeBatchCourse {
     @JsonProperty("programmeBatchCourseId")
     private String id;
 
-    @Column(name = "master_course_id")
+    @Transient
     private String masterCourseId;
+
+    @Transient
+    private String masterProgrammeId;
 
     @Column(name = "programme_batch_id", nullable = false)
     private String programmeBatchId;
@@ -124,59 +127,51 @@ public class ProgrammeBatchCourse {
 
     @JsonProperty("courseCode")
     public String getCourseCode() {
+        if (this.courseCodeOverride != null && !this.courseCodeOverride.isBlank()) return this.courseCodeOverride;
+        if (this.code != null && !this.code.isBlank()) return this.code;
+        return this.courseCode;
+    }
+
+    public void setCourseCode(String courseCode) {
+        this.courseCode = courseCode;
+    }
+
+    public String getCode() {
         if (this.code != null && !this.code.isBlank()) return this.code;
         if (this.courseCodeOverride != null && !this.courseCodeOverride.isBlank()) return this.courseCodeOverride;
         return this.courseCode;
     }
 
-    public void setCourseCode(String courseCode) {
-        this.code = courseCode;
-        this.courseCode = courseCode;
-    }
-
-    public String getCode() {
-        return getCourseCode();
-    }
-
     public void setCode(String code) {
         this.code = code;
-        this.courseCode = code;
     }
 
     @JsonProperty("courseName")
     public String getCourseName() {
+        if (this.courseNameOverride != null && !this.courseNameOverride.isBlank()) return this.courseNameOverride;
+        if (this.name != null && !this.name.isBlank()) return this.name;
+        return this.courseName;
+    }
+
+    public void setCourseName(String courseName) {
+        this.courseName = courseName;
+    }
+
+    public String getName() {
         if (this.name != null && !this.name.isBlank()) return this.name;
         if (this.courseNameOverride != null && !this.courseNameOverride.isBlank()) return this.courseNameOverride;
         return this.courseName;
     }
 
-    public void setCourseName(String courseName) {
-        this.name = courseName;
-        this.courseName = courseName;
-    }
-
-    public String getName() {
-        return getCourseName();
-    }
-
     public void setName(String name) {
         this.name = name;
-        this.courseName = name;
     }
 
-    public String getEffectiveCourseCode(MasterCourse masterCourse) {
-        if (this.code != null && !this.code.isBlank()) return this.code;
-        if (courseCodeOverride != null && !courseCodeOverride.isBlank()) {
-            return courseCodeOverride;
-        }
-        return masterCourse != null ? masterCourse.getCode() : "";
+    public String getEffectiveCourseCode() {
+        return getCourseCode();
     }
 
-    public String getEffectiveCourseName(MasterCourse masterCourse) {
-        if (this.name != null && !this.name.isBlank()) return this.name;
-        if (courseNameOverride != null && !courseNameOverride.isBlank()) {
-            return courseNameOverride;
-        }
-        return masterCourse != null ? masterCourse.getName() : "";
+    public String getEffectiveCourseName() {
+        return getCourseName();
     }
 }

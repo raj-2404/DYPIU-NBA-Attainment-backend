@@ -831,51 +831,51 @@ public class AcademicController {
                 .build());
     }
 
-    @GetMapping("/master-courses")
-    public ResponseEntity<ApiResponse<List<MasterCourse>>> getCourses(
+    @GetMapping({"/courses", "/master-courses"})
+    public ResponseEntity<ApiResponse<List<ProgrammeBatchCourse>>> getCourses(
             @RequestParam(required = false) String masterProgrammeId,
             @RequestParam(required = false) String programmeBatchId) {
         String effectiveProgId = (masterProgrammeId != null && !masterProgrammeId.isBlank()) ? masterProgrammeId : masterProgrammeId;
         String effectiveProgrammeBatchId = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchId : programmeBatchId;
-        List<MasterCourse> courses = (effectiveProgId != null && !effectiveProgId.isBlank())
+        List<ProgrammeBatchCourse> courses = (effectiveProgId != null && !effectiveProgId.isBlank())
             ? academicService.getCoursesByProgramme(effectiveProgId, effectiveProgrammeBatchId) 
             : academicService.getAllCourses();
-        return ResponseEntity.ok(ApiResponse.<List<MasterCourse>>builder().success(true).data(courses).build());
+        return ResponseEntity.ok(ApiResponse.<List<ProgrammeBatchCourse>>builder().success(true).data(courses).build());
     }
 
-    @GetMapping("/master-courses/{id}")
-    public ResponseEntity<ApiResponse<MasterCourse>> getCourseById(@PathVariable String id) {
-        return ResponseEntity.ok(ApiResponse.<MasterCourse>builder()
+    @GetMapping({"/courses/{id}", "/master-courses/{id}"})
+    public ResponseEntity<ApiResponse<ProgrammeBatchCourse>> getCourseById(@PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.<ProgrammeBatchCourse>builder()
                 .success(true)
                 .data(academicService.getCourseById(id))
                 .build());
     }
 
-    @PostMapping("/master-courses")
-    public ResponseEntity<ApiResponse<MasterCourse>> saveCourse(@RequestBody MasterCourse course) {
-        return ResponseEntity.ok(ApiResponse.<MasterCourse>builder()
+    @PostMapping({"/courses", "/master-courses"})
+    public ResponseEntity<ApiResponse<ProgrammeBatchCourse>> saveCourse(@RequestBody ProgrammeBatchCourse course) {
+        return ResponseEntity.ok(ApiResponse.<ProgrammeBatchCourse>builder()
                 .success(true)
-                .message("MasterCourse saved successfully")
+                .message("Course saved successfully")
                 .data(academicService.saveCourse(course))
                 .build());
     }
 
-    @PutMapping("/master-courses/{id}")
-    public ResponseEntity<ApiResponse<MasterCourse>> updateCourse(
+    @PutMapping({"/courses/{id}", "/master-courses/{id}"})
+    public ResponseEntity<ApiResponse<ProgrammeBatchCourse>> updateCourse(
             @PathVariable String id,
-            @RequestBody MasterCourse course) {
+            @RequestBody ProgrammeBatchCourse course) {
         course.setId(id);
-        return ResponseEntity.ok(ApiResponse.<MasterCourse>builder()
+        return ResponseEntity.ok(ApiResponse.<ProgrammeBatchCourse>builder()
                 .success(true)
-                .message("MasterCourse updated successfully")
+                .message("Course updated successfully")
                 .data(academicService.saveCourse(course))
                 .build());
     }
 
-    @DeleteMapping("/master-courses/{id}")
+    @DeleteMapping({"/courses/{id}", "/master-courses/{id}"})
     public ResponseEntity<ApiResponse<Void>> deleteCourse(@PathVariable String id) {
         academicService.deleteCourse(id);
-        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("MasterCourse deleted").build());
+        return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("Course deleted").build());
     }
 
     // --- MasterCourse Offerings (ProgrammeBatch Specific) ---

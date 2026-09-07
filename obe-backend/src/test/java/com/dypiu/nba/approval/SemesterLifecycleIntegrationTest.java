@@ -48,11 +48,7 @@ public class SemesterLifecycleIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -113,27 +109,7 @@ public class SemesterLifecycleIntegrationTest {
                 .coordinatorEmail("pc_sem@dypiu.ac.in")
                 .build());
 
-        MasterCourse mc1 = masterCourseRepository.save(MasterCourse.builder()
-                .id(courseSem1Id)
-                .masterProgrammeId(progId)
-                .code("CS101")
-                .name("Programming in C")
-                .credits(4)
-                .semester("1")
-                .courseType("CORE")
-                .status("ACTIVE")
-                .build());
 
-        MasterCourse mc2 = masterCourseRepository.save(MasterCourse.builder()
-                .id(courseSem2Id)
-                .masterProgrammeId(progId)
-                .code("CS201")
-                .name("Data Structures")
-                .credits(4)
-                .semester("2")
-                .courseType("CORE")
-                .status("ACTIVE")
-                .build());
 
         ProgrammeBatchCourse pbc1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id(pbcSem1Id)

@@ -36,11 +36,7 @@ public class CourseOfferingOverridesIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -49,9 +45,10 @@ public class CourseOfferingOverridesIntegrationTest {
     private School testSchool;
     private Department testDept;
     private MasterProgramme testProg;
+    private ProgrammeBatch testBatch0;
     private ProgrammeBatch testBatch1;
     private ProgrammeBatch testBatch2;
-    private MasterCourse testMasterCourse;
+    private ProgrammeBatchCourse testMasterCourse;
     private User testFaculty;
 
     @BeforeEach
@@ -94,8 +91,18 @@ public class CourseOfferingOverridesIntegrationTest {
                 .endYear(2029)
                 .build());
 
-        testMasterCourse = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatch templateBatch = programmeBatchRepository.save(ProgrammeBatch.builder()
+                .id("batch-template-" + uid)
+                .masterProgrammeId(testProg.getId())
+                .name("Template Batch")
+                .startYear(2020)
+                .endYear(2024)
+                .build());
+
+        testMasterCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("crs-ovr-" + uid)
+                .programmeBatchId(templateBatch.getId())
+                .semester(1)
                 .masterProgrammeId(testProg.getId())
                 .code("CS101")
                 .name("Data Structures & Algorithms")
@@ -138,7 +145,7 @@ public class CourseOfferingOverridesIntegrationTest {
         assertEquals("ACTIVE", created.getStatus(), "Default status must be assigned");
 
         // Verify MasterCourse remains strictly unchanged
-        MasterCourse master = masterCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
+        ProgrammeBatchCourse master = programmeBatchCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
         assertEquals("CS101", master.getCode());
         assertEquals("Data Structures & Algorithms", master.getName());
     }
@@ -163,7 +170,7 @@ public class CourseOfferingOverridesIntegrationTest {
         assertEquals("Data Structures & Algorithms", created.getCourseName(), "Effective courseName must fallback to MasterCourse name");
 
         // Verify MasterCourse remains unchanged
-        MasterCourse master = masterCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
+        ProgrammeBatchCourse master = programmeBatchCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
         assertEquals("CS101", master.getCode());
         assertEquals("Data Structures & Algorithms", master.getName());
     }
@@ -208,7 +215,7 @@ public class CourseOfferingOverridesIntegrationTest {
         assertEquals("Data Structures & Algorithms", cleared.getCourseName(), "Effective courseName must fallback after clearing");
 
         // Verify MasterCourse is still unchanged
-        MasterCourse master = masterCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
+        ProgrammeBatchCourse master = programmeBatchCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
         assertEquals("CS101", master.getCode());
         assertEquals("Data Structures & Algorithms", master.getName());
     }
@@ -242,7 +249,7 @@ public class CourseOfferingOverridesIntegrationTest {
         assertEquals("DSA for 2025 Batch", off2.getCourseName());
 
         // Master Course unchanged
-        MasterCourse master = masterCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
+        ProgrammeBatchCourse master = programmeBatchCourseRepository.findById(testMasterCourse.getId()).orElseThrow();
         assertEquals("CS101", master.getCode());
         assertEquals("Data Structures & Algorithms", master.getName());
     }

@@ -1,6 +1,6 @@
 package com.dypiu.nba.service;
 
-import com.dypiu.nba.controller.MasterCourseController;
+import com.dypiu.nba.controller.AcademicController;
 import com.dypiu.nba.controller.MasterProgrammeController;
 import com.dypiu.nba.controller.ProgrammeBatchController;
 import com.dypiu.nba.controller.ProgrammeBatchCourseController;
@@ -38,7 +38,7 @@ public class Phase108ExplicitCanonicalDomainApiIntegrationTest {
     private MasterProgrammeController masterProgrammeController;
 
     @Autowired
-    private MasterCourseController masterCourseController;
+    private AcademicController academicController;
 
     @Autowired
     private ProgrammeBatchController programmeBatchController;
@@ -48,11 +48,7 @@ public class Phase108ExplicitCanonicalDomainApiIntegrationTest {
 
     @Autowired
     private MasterProgrammeRepository masterProgrammeRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
 
     @Autowired
@@ -80,7 +76,7 @@ public class Phase108ExplicitCanonicalDomainApiIntegrationTest {
     private Department dept;
     private MasterProgramme prog;
     private ProgrammeBatch batch;
-    private MasterCourse course;
+    private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse pbc;
 
     @BeforeEach
@@ -117,12 +113,13 @@ public class Phase108ExplicitCanonicalDomainApiIntegrationTest {
                 .status("ACTIVE")
                 .build());
 
-        course = masterCourseRepository.save(MasterCourse.builder()
+        course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("mc-canon-" + uid)
-                .masterProgrammeId(prog.getId())
+                .programmeBatchId(batch.getId())
                 .name("Data Structures and Algorithms")
                 .code("CS201")
                 .credits(4)
+                .semester(3)
                 .build());
 
         pbc = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
@@ -171,7 +168,7 @@ public class Phase108ExplicitCanonicalDomainApiIntegrationTest {
         assertEquals(prog.getId(), progRes.getBody().getData().getId());
 
         // MasterCourse
-        ResponseEntity<ApiResponse<MasterCourse>> courseRes = masterCourseController.getMasterCourseById(course.getId());
+        ResponseEntity<ApiResponse<ProgrammeBatchCourse>> courseRes = academicController.getCourseById(course.getId());
         assertNotNull(courseRes.getBody());
         assertEquals(course.getId(), courseRes.getBody().getData().getId());
     }

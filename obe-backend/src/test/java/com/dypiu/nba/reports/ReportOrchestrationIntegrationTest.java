@@ -44,11 +44,7 @@ public class ReportOrchestrationIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -112,7 +108,7 @@ public class ReportOrchestrationIntegrationTest {
                 .build());
         batchId = batch.getId();
 
-        MasterCourse course = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("course-" + uid)
                 .masterProgrammeId(progId)
                 .code("CS201")

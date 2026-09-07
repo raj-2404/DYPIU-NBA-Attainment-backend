@@ -35,7 +35,6 @@ public class AttainmentReportService {
     private final ProgrammeBatchAttainmentReportRepository programmeBatchAttainmentReportRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final DepartmentRepository departmentRepository;
     private final SchoolRepository schoolRepository;
@@ -107,7 +106,6 @@ public class AttainmentReportService {
 
     @Transactional
     public CourseAttainmentReportDto generateAndSaveCourseReport(ProgrammeBatchCourse offering, ReportStatus status) {
-        MasterCourse course = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
         ProgrammeBatch batch = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
 
         Map<String, Object> calcResult = calculationService.calculateCourseCoAttainment(offering.getId());
@@ -240,11 +238,11 @@ public class AttainmentReportService {
 
         CourseAttainmentReport report = courseAttainmentReportRepository.findByProgrammeBatchCourseId(offering.getId())
                 .orElse(CourseAttainmentReport.builder()
-                        .id("car-" + UUID.randomUUID().toString().substring(0, 10))
+                        .id("catr-rep-" + UUID.randomUUID().toString().substring(0, 8))
                         .programmeBatchCourseId(offering.getId())
                         .build());
 
-        report.setStatus(status);
+        report.setStatus(status != null ? status : ReportStatus.DRAFT);
         report.setOverallCoAttainment(overall);
         report.setDirectAttainment(direct);
         report.setIndirectAttainment(indirect);
@@ -258,9 +256,9 @@ public class AttainmentReportService {
         return CourseAttainmentReportDto.builder()
                 .id(report.getId())
                 .programmeBatchCourseId(offering.getId())
-                .masterCourseId(course != null ? course.getId() : offering.getMasterCourseId())
-                .courseCode(offering.getEffectiveCourseCode(course))
-                .courseName(offering.getEffectiveCourseName(course))
+                .masterCourseId(offering.getMasterCourseId())
+                .courseCode(offering.getEffectiveCourseCode())
+                .courseName(offering.getEffectiveCourseName())
                 .programmeBatchId(batch != null ? batch.getId() : offering.getProgrammeBatchId())
                 .batchName(batch != null ? batch.getName() : "Batch")
                 .semester(offering.getSemester())
@@ -279,7 +277,6 @@ public class AttainmentReportService {
     }
 
     private CourseAttainmentReportDto mapToDto(CourseAttainmentReport report, ProgrammeBatchCourse offering) {
-        MasterCourse course = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
         ProgrammeBatch batch = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
 
         List<CourseAttainmentReportDto.Table1Row> table1 = fromJson(report.getTable1MappingJson(), new TypeReference<>() {});
@@ -291,9 +288,9 @@ public class AttainmentReportService {
         return CourseAttainmentReportDto.builder()
                 .id(report.getId())
                 .programmeBatchCourseId(offering.getId())
-                .masterCourseId(course != null ? course.getId() : offering.getMasterCourseId())
-                .courseCode(offering.getEffectiveCourseCode(course))
-                .courseName(offering.getEffectiveCourseName(course))
+                .masterCourseId(offering.getMasterCourseId())
+                .courseCode(offering.getEffectiveCourseCode())
+                .courseName(offering.getEffectiveCourseName())
                 .programmeBatchId(batch != null ? batch.getId() : offering.getProgrammeBatchId())
                 .batchName(batch != null ? batch.getName() : "Batch")
                 .semester(offering.getSemester())
@@ -619,12 +616,35 @@ public class AttainmentReportService {
     @Transactional(readOnly = true)
     public List<CourseAttainmentReportDto> getHistoricalCourseAttainmentReports(String masterCourseId) {
         System.out.println("[AttainmentReportService] getHistoricalCourseAttainmentReports called | masterCourseId: " + masterCourseId);
-        MasterCourse course = masterCourseRepository.findById(masterCourseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Master Course not found: " + masterCourseId));
+        ProgrammeBatchCourse offeringCourse = programmeBatchCourseRepository.findById(masterCourseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + masterCourseId));
 
-        enforceCourseScope(masterCourseId);
+        enforceOfferingScope(offeringCourse);
 
-        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
+        String courseCode = offeringCourse.getCode() != null && !offeringCourse.getCode().isBlank() ? offeringCourse.getCode() : offeringCourse.getCourseCode();
+        String rootCode = (courseCode != null && courseCode.contains("-")) ? courseCode.substring(0, courseCode.indexOf('-')) : courseCode;
+        ProgrammeBatch batch = programmeBatchRepository.findById(offeringCourse.getProgrammeBatchId()).orElse(null);
+        String progId = batch != null ? batch.getMasterProgrammeId() : offeringCourse.getMasterProgrammeId();
+
+        List<ProgrammeBatchCourse> offerings = new ArrayList<>();
+        if (progId != null) {
+            List<ProgrammeBatch> allBatches = programmeBatchRepository.findByMasterProgrammeIdOrderByStartYearDesc(progId);
+            for (ProgrammeBatch b : allBatches) {
+                List<ProgrammeBatchCourse> pbcList = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(b.getId());
+                for (ProgrammeBatchCourse pbc : pbcList) {
+                    String pbcCode = pbc.getCourseCode();
+                    boolean matches = (courseCode != null && courseCode.equalsIgnoreCase(pbcCode))
+                            || (rootCode != null && pbcCode != null && pbcCode.toUpperCase().startsWith(rootCode.toUpperCase()))
+                            || (pbc.getMasterCourseId() != null && pbc.getMasterCourseId().equalsIgnoreCase(masterCourseId));
+                    if (matches && offerings.stream().noneMatch(o -> o.getId().equals(pbc.getId()))) {
+                        offerings.add(pbc);
+                    }
+                }
+            }
+        }
+        if (offerings.isEmpty()) {
+            offerings = List.of(offeringCourse);
+        }
         List<CourseAttainmentReportDto> result = new ArrayList<>();
 
         for (ProgrammeBatchCourse off : offerings) {
@@ -678,17 +698,19 @@ public class AttainmentReportService {
         CurrentUserScope scope = currentUserScopeService.getCurrentUserScope();
         if (scope != null && scope.isIqac()) return;
 
-        MasterCourse course = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
-        if (course != null && course.getMasterProgrammeId() != null) {
-            MasterProgramme prog = masterProgrammeRepository.findById(course.getMasterProgrammeId()).orElse(null);
-            if (prog != null && prog.getDepartmentId() != null) {
-                if (scope.isHod() && !prog.getDepartmentId().equals(scope.getDepartmentId())) {
-                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Offering outside your department.");
+        if (offering.getProgrammeBatchId() != null) {
+            ProgrammeBatch batch = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
+            if (batch != null && batch.getMasterProgrammeId() != null) {
+                MasterProgramme prog = masterProgrammeRepository.findById(batch.getMasterProgrammeId()).orElse(null);
+                if (prog != null && prog.getDepartmentId() != null) {
+                    if (scope != null && scope.isHod() && !prog.getDepartmentId().equals(scope.getDepartmentId())) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Offering outside your department.");
+                    }
                 }
             }
         }
 
-        if (scope.isFaculty()) {
+        if (scope != null && scope.isFaculty()) {
             boolean assigned = (offering.getCourseCoordinatorId() != null && offering.getCourseCoordinatorId().equals(scope.getUserId()))
                     || (scope.getEmail() != null && scope.getEmail().equalsIgnoreCase(offering.getAssignedFaculty()))
                     || (scope.getName() != null && scope.getName().equalsIgnoreCase(offering.getCourseCoordinatorName()));
@@ -783,28 +805,9 @@ public class AttainmentReportService {
         CurrentUserScope scope = currentUserScopeService.getCurrentUserScope();
         if (scope == null || scope.isIqac()) return;
 
-        MasterCourse course = masterCourseRepository.findById(masterCourseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Master Course not found: " + masterCourseId));
-        if (course.getMasterProgrammeId() != null) {
-            MasterProgramme prog = masterProgrammeRepository.findById(course.getMasterProgrammeId()).orElse(null);
-            if (prog != null && prog.getDepartmentId() != null) {
-                String deptId = prog.getDepartmentId();
-                if (scope.isHod()) {
-                    boolean hodMatch = false;
-                    if (scope.getDepartmentId() != null && scope.getDepartmentId().equalsIgnoreCase(deptId)) {
-                        hodMatch = true;
-                    } else if (scope.getEmail() != null && !scope.getEmail().isBlank()) {
-                        List<Department> hodDepts = departmentRepository.findByHodEmailIgnoreCase(scope.getEmail().trim());
-                        if (hodDepts != null && !hodDepts.isEmpty()) {
-                            hodMatch = hodDepts.stream().anyMatch(d -> deptId.equalsIgnoreCase(d.getId()));
-                        }
-                    }
-                    if (!hodMatch) {
-                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Course outside your department.");
-                    }
-                }
-            }
-        }
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.findById(masterCourseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + masterCourseId));
+        enforceOfferingScope(course);
     }
 
     private void enforceProgrammeScope(String masterProgrammeId) {

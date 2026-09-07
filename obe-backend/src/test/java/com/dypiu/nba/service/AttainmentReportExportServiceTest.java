@@ -22,10 +22,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AttainmentReportExportServiceTest {
-
-    @Mock
-    private MasterCourseRepository masterCourseRepository;
-    @Mock
+@Mock
     private MasterProgrammeRepository masterProgrammeRepository;
     @Mock
     private DepartmentRepository departmentRepository;
@@ -47,7 +44,7 @@ class AttainmentReportExportServiceTest {
     @InjectMocks
     private AttainmentReportExportService exportService;
 
-    private MasterCourse sampleCourse;
+    private ProgrammeBatchCourse sampleCourse;
     private ProgrammeBatchCourse sampleOffering;
     private ProgrammeBatch sampleBatch;
     private MasterProgramme sampleProgramme;
@@ -55,7 +52,7 @@ class AttainmentReportExportServiceTest {
 
     @BeforeEach
     void setUp() {
-        sampleCourse = MasterCourse.builder()
+        sampleCourse = ProgrammeBatchCourse.builder().id("crs-1").programmeBatchId("batch-1").semester(1)
                 .id("crs-1")
                 .code("310244")
                 .name("Computer Network and Security")
@@ -98,10 +95,10 @@ class AttainmentReportExportServiceTest {
 
     @Test
     void testGenerateAttainmentExcel_CreatesValidWorkbook() throws Exception {
-        when(masterCourseRepository.findById("crs-1")).thenReturn(Optional.of(sampleCourse));
+        when(programmeBatchCourseRepository.findById("crs-1")).thenReturn(Optional.of(sampleCourse));
         when(masterProgrammeRepository.findById("prog-1")).thenReturn(Optional.of(sampleProgramme));
         when(programmeBatchRepository.findById("batch-1")).thenReturn(Optional.of(sampleBatch));
-        when(programmeBatchCourseRepository.findByMasterCourseId("crs-1")).thenReturn(List.of(sampleOffering));
+        
 
         Map<String, Object> coCalcData = new HashMap<>();
         coCalcData.put("overallCoAttainment", new BigDecimal("2.50"));
@@ -134,10 +131,10 @@ class AttainmentReportExportServiceTest {
 
     @Test
     void testGenerateAttainmentPdf_CreatesValidPdf() {
-        when(masterCourseRepository.findById("crs-1")).thenReturn(Optional.of(sampleCourse));
+        when(programmeBatchCourseRepository.findById("crs-1")).thenReturn(Optional.of(sampleCourse));
         when(masterProgrammeRepository.findById("prog-1")).thenReturn(Optional.of(sampleProgramme));
         when(programmeBatchRepository.findById("batch-1")).thenReturn(Optional.of(sampleBatch));
-        when(programmeBatchCourseRepository.findByMasterCourseId("crs-1")).thenReturn(List.of(sampleOffering));
+        
 
         Map<String, Object> coCalcData = new HashMap<>();
         coCalcData.put("overallCoAttainment", new BigDecimal("2.50"));

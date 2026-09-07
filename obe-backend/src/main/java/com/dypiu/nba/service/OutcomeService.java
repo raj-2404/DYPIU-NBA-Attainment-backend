@@ -30,7 +30,6 @@ public class OutcomeService {
     private final CourseOutcomeRepository coRepository;
     private final PoCompetencyRepository poCompetencyRepository;
     private final PsoCompetencyRepository psoCompetencyRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
     private final CoPoMappingRepository coPoMappingRepository;
     private final CoPsoMappingRepository coPsoMappingRepository;
@@ -273,13 +272,7 @@ public class OutcomeService {
             if (semApproved) return true;
         }
         String progId = null;
-        if (offering.getMasterCourseId() != null) {
-            MasterCourse c = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
-            if (c != null && c.getMasterProgrammeId() != null) {
-                progId = c.getMasterProgrammeId();
-            }
-        }
-        if (progId == null && offering.getProgrammeBatchId() != null) {
+        if (offering.getProgrammeBatchId() != null) {
             ProgrammeBatch b = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
             if (b != null && b.getMasterProgrammeId() != null) {
                 progId = b.getMasterProgrammeId();
@@ -302,11 +295,16 @@ public class OutcomeService {
         CurrentUserScope scope = getScope();
         if (scope == null || scope.isIqac()) return;
         if (masterCourseId == null || masterCourseId.isBlank()) return;
-        MasterCourse course = masterCourseRepository.findById(masterCourseId)
-                .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + masterCourseId));
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.findById(masterCourseId).orElse(null);
+        if (course != null) {
+            enforceOfferingScope(course.getId());
+            return;
+        }
+
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByCode(masterCourseId);
+        if (offerings.isEmpty()) return;
 
         if (scope.isFaculty()) {
-            List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
             boolean hasAssigned = offerings.stream().anyMatch(o -> {
                 boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
                 return isCoord || (o.getAssignedFaculty() != null && (o.getAssignedFaculty().contains(scope.getEmail()) || o.getAssignedFaculty().contains(scope.getName())));
@@ -325,7 +323,10 @@ public class OutcomeService {
             return;
         }
 
-        enforceProgrammeScope(course.getMasterProgrammeId());
+        ProgrammeBatch b = programmeBatchRepository.findById(offerings.get(0).getProgrammeBatchId()).orElse(null);
+        if (b != null && b.getMasterProgrammeId() != null) {
+            enforceProgrammeScope(b.getMasterProgrammeId());
+        }
     }
 
     private void enforceOfferingScope(String offeringId) {
@@ -349,9 +350,7 @@ public class OutcomeService {
 
         if (offering.getProgrammeBatchId() != null) {
             enforceBatchScope(offering.getProgrammeBatchId());
-            return;
         }
-        if (offering.getMasterCourseId() != null) enforceCourseScope(offering.getMasterCourseId());
     }
 
     private void enforceOfferingEditability(String masterCourseIdOrOfferingId) {
@@ -371,7 +370,7 @@ public class OutcomeService {
         if (masterCourseIdOrOfferingId == null || masterCourseIdOrOfferingId.isBlank()) return;
         if (programmeBatchCourseRepository.existsById(masterCourseIdOrOfferingId)) {
             enforceOfferingScope(masterCourseIdOrOfferingId);
-        } else if (masterCourseRepository.existsById(masterCourseIdOrOfferingId)) {
+        } else {
             enforceCourseScope(masterCourseIdOrOfferingId);
         }
     }
@@ -700,7 +699,7 @@ public class OutcomeService {
         if (programmeBatchCourseRepository.existsById(offeringOrMasterCourseId)) {
             return offeringOrMasterCourseId;
         }
-        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByMasterCourseId(offeringOrMasterCourseId);
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByCode(offeringOrMasterCourseId);
         if (!offerings.isEmpty()) {
             return offerings.get(0).getId();
         }
@@ -969,11 +968,12 @@ public class OutcomeService {
         }
         String targetOfferingId = resolveOfferingId(masterCourseIdOrOfferingId);
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(targetOfferingId).orElse(null);
-        String masterCourseId = offering != null ? offering.getMasterCourseId() : targetOfferingId;
         String programmeBatchId = offering != null ? offering.getProgrammeBatchId() : null;
-
-        MasterCourse course = masterCourseRepository.findById(masterCourseId).orElse(null);
-        String progId = course != null ? course.getMasterProgrammeId() : null;
+        String progId = null;
+        if (programmeBatchId != null) {
+            ProgrammeBatch b = programmeBatchRepository.findById(programmeBatchId).orElse(null);
+            if (b != null) progId = b.getMasterProgrammeId();
+        }
 
         List<CourseOutcome> cos = getCOsByCourse(targetOfferingId);
         List<ProgrammeOutcome> pos = (programmeBatchId != null) ? getPOsByProgramme(programmeBatchId) : ((progId != null) ? getPOsByProgramme(progId) : Collections.emptyList());
@@ -1048,7 +1048,8 @@ public class OutcomeService {
         }
 
         return CourseMappingMatrixDto.builder()
-                .masterCourseId(masterCourseId)
+                .masterCourseId(masterCourseIdOrOfferingId)
+                .programmeBatchCourseId(targetOfferingId)
                 .masterProgrammeId(progId)
                 .cos(cos)
                 .pos(pos)
@@ -1076,11 +1077,15 @@ public class OutcomeService {
             approvalService.resetToDraftOnModification(ApprovalType.CO_DEFINITION, targetOfferingId, null);
         }
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(targetOfferingId).orElse(null);
-        String masterCourseId = offering != null ? offering.getMasterCourseId() : targetOfferingId;
         String programmeBatchId = offering != null ? offering.getProgrammeBatchId() : null;
-
-        MasterCourse course = masterCourseRepository.findById(masterCourseId).orElse(null);
-        String progId = course != null ? course.getMasterProgrammeId() : (dto != null && dto.getMasterProgrammeId() != null ? dto.getMasterProgrammeId() : null);
+        String progId = null;
+        if (programmeBatchId != null) {
+            ProgrammeBatch b = programmeBatchRepository.findById(programmeBatchId).orElse(null);
+            if (b != null) progId = b.getMasterProgrammeId();
+        }
+        if (progId == null && dto != null && dto.getMasterProgrammeId() != null) {
+            progId = dto.getMasterProgrammeId();
+        }
 
         Map<String, Object> poKwToReturn = Collections.emptyMap();
         Map<String, Object> psoKwToReturn = Collections.emptyMap();

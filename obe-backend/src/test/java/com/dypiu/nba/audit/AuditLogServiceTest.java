@@ -231,9 +231,9 @@ public class AuditLogServiceTest {
                 .endYear(2028)
                 .build());
 
-        MasterCourse course = academicService.saveCourse(MasterCourse.builder()
+        ProgrammeBatchCourse course = academicService.saveCourse(ProgrammeBatchCourse.builder()
                 .masterProgrammeId(prog.getId())
-                .code("CS101-AUDIT")
+                .programmeBatchId(batch.getId()).semester(1).code("CS101-AUDIT")
                 .name("Intro to CS")
                 .credits(4)
                 .build());
@@ -258,7 +258,7 @@ public class AuditLogServiceTest {
 
         List<AuditLog> courseLogs = auditLogRepository.findByResourceIdOrderByCreatedAtDesc(course.getId());
         assertFalse(courseLogs.isEmpty());
-        assertEquals(ResourceType.MASTER_COURSE, courseLogs.get(0).getResourceType());
+        assertEquals(ResourceType.PROGRAMME_BATCH_COURSE, courseLogs.get(0).getResourceType());
 
         List<AuditLog> offeringLogs = auditLogRepository.findByResourceIdOrderByCreatedAtDesc(offering.getId());
         assertFalse(offeringLogs.isEmpty());

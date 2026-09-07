@@ -58,11 +58,7 @@ public class ApprovedStateImmutabilityIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private MasterProgrammeRepository masterProgrammeRepository;
 
     @Autowired
@@ -98,7 +94,7 @@ public class ApprovedStateImmutabilityIntegrationTest {
     private Department department;
     private MasterProgramme programme;
     private ProgrammeBatch batch;
-    private MasterCourse course;
+    private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse batchCourse;
 
     @BeforeEach
@@ -113,7 +109,6 @@ public class ApprovedStateImmutabilityIntegrationTest {
         psoRepository.deleteAll();
         programmeBatchCourseRepository.deleteAll();
         programmeBatchRepository.deleteAll();
-        masterCourseRepository.deleteAll();
         masterProgrammeRepository.deleteAll();
         departmentRepository.deleteAll();
         schoolRepository.deleteAll();
@@ -150,7 +145,7 @@ public class ApprovedStateImmutabilityIntegrationTest {
                 .coordinatorEmail("pc.imm@dypiu.ac.in")
                 .build());
 
-        course = masterCourseRepository.save(MasterCourse.builder()
+        course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("crs-cs101-imm")
                 .masterProgrammeId(programme.getId())
                 .code("CS101-IMM")
@@ -341,12 +336,50 @@ public class ApprovedStateImmutabilityIntegrationTest {
         );
         assertEquals(HttpStatus.OK, draftRes.getStatusCode());
 
-        // 2. Approve Course Allocation (by HOD)
+        // 2. Submit for HOD review
+        Map<String, Object> submitBody = new HashMap<>(body);
+        submitBody.put("submit", true);
+        ResponseEntity<ApiResponse> submitRes = restTemplate.exchange(
+                "/academic/master-courses/allocate",
+                HttpMethod.POST,
+                new HttpEntity<>(submitBody, authHeaders(pcToken)),
+                ApiResponse.class
+        );
+        assertEquals(HttpStatus.OK, submitRes.getStatusCode());
+
+        // 3. Attempt mutation while SUBMITTED (PENDING HOD review) -> MUST BE REJECTED WITH 409 CONFLICT
+        ResponseEntity<ApiResponse> pendingConflictRes = restTemplate.exchange(
+                "/academic/master-courses/allocate",
+                HttpMethod.POST,
+                new HttpEntity<>(body, authHeaders(pcToken)),
+                ApiResponse.class
+        );
+        assertEquals(HttpStatus.CONFLICT, pendingConflictRes.getStatusCode());
+
+        // Also test single course addition during PENDING -> MUST BE REJECTED WITH 409 CONFLICT
+        ProgrammeBatchCourse newCourse = ProgrammeBatchCourse.builder()
+                .programmeBatchId(batch.getId())
+                .code("CS999")
+                .name("New Course While Pending")
+                .semester(1)
+                .credits(3)
+                .courseType("THEORY")
+                .status("ACTIVE")
+                .build();
+        ResponseEntity<ApiResponse> singleCourseConflictRes = restTemplate.exchange(
+                "/academic/programme-batches/" + batch.getId() + "/courses",
+                HttpMethod.POST,
+                new HttpEntity<>(newCourse, authHeaders(pcToken)),
+                ApiResponse.class
+        );
+        assertEquals(HttpStatus.CONFLICT, singleCourseConflictRes.getStatusCode());
+
+        // 4. Approve Course Allocation (by HOD)
         String sem1Key = "allocation-" + batch.getId() + "-sem-1";
         approvalService.verifyStatus(sem1Key, "allocationStatus", "APPROVED", "Allocation approved by HOD", hod.getName());
         assertTrue(approvalService.isAllocationApproved(batch.getId(), 1));
 
-        // 3. Attempt mutation while APPROVED -> MUST BE REJECTED WITH 409 CONFLICT
+        // 5. Attempt mutation while APPROVED -> MUST BE REJECTED WITH 409 CONFLICT
         ResponseEntity<ApiResponse> conflictRes = restTemplate.exchange(
                 "/academic/master-courses/allocate",
                 HttpMethod.POST,
@@ -355,11 +388,11 @@ public class ApprovedStateImmutabilityIntegrationTest {
         );
         assertEquals(HttpStatus.CONFLICT, conflictRes.getStatusCode());
 
-        // 4. Request Revision
+        // 6. Request Revision
         approvalService.requestRevisionStatus(sem1Key, "allocationStatus", "REVISION_REQUESTED", "Change coordinator assignment", hod.getName());
         assertFalse(approvalService.isAllocationApproved(batch.getId(), 1));
 
-        // 5. Modification allowed after revision request
+        // 7. Modification allowed after revision request
         ResponseEntity<ApiResponse> modRes = restTemplate.exchange(
                 "/academic/master-courses/allocate",
                 HttpMethod.POST,

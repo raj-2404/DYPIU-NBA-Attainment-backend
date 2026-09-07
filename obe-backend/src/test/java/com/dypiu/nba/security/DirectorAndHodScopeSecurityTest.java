@@ -53,9 +53,8 @@ public class DirectorAndHodScopeSecurityTest {
     private ProgrammeBatchRepository programmeBatchRepository;
 
     @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+    private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
+@Autowired
     private UserRepository userRepository;
 
     private School schoolA;
@@ -67,8 +66,8 @@ public class DirectorAndHodScopeSecurityTest {
     private MasterProgramme progB1;
     private ProgrammeBatch batchA1;
     private ProgrammeBatch batchB1;
-    private MasterCourse courseA1;
-    private MasterCourse courseB1;
+    private ProgrammeBatchCourse courseA1;
+    private ProgrammeBatchCourse courseB1;
 
     private User directorA;
     private User directorB;
@@ -159,7 +158,7 @@ public class DirectorAndHodScopeSecurityTest {
                 .build());
 
         // 5. Courses
-        courseA1 = masterCourseRepository.save(MasterCourse.builder()
+        courseA1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA1.getId()).semester(1)
                 .id("crs-test-a1-" + System.nanoTime())
                 .masterProgrammeId(progA1.getId())
                 .name("Data Structures")
@@ -168,7 +167,7 @@ public class DirectorAndHodScopeSecurityTest {
                 .courseType("CORE")
                 .build());
 
-        courseB1 = masterCourseRepository.save(MasterCourse.builder()
+        courseB1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchB1.getId()).semester(1)
                 .id("crs-test-b1-" + System.nanoTime())
                 .masterProgrammeId(progB1.getId())
                 .name("Financial Accounting")
@@ -336,7 +335,7 @@ public class DirectorAndHodScopeSecurityTest {
     @DisplayName("Scenario 9: Director A sees only courses under School A")
     void testDirectorCoursesScopedToSchoolA() {
         authenticateUser(directorA);
-        List<MasterCourse> courses = academicService.getAllCourses();
+        List<ProgrammeBatchCourse> courses = academicService.getAllCourses();
         assertFalse(courses.isEmpty());
         assertTrue(courses.stream().anyMatch(c -> courseA1.getId().equals(c.getId())));
         assertFalse(courses.stream().anyMatch(c -> courseB1.getId().equals(c.getId())));
@@ -454,7 +453,7 @@ public class DirectorAndHodScopeSecurityTest {
     @DisplayName("Scenario 20: HOD A1 sees only courses belonging to programmes in Department A1")
     void testHodCoursesScopedToDeptA1() {
         authenticateUser(hodA1);
-        List<MasterCourse> courses = academicService.getAllCourses();
+        List<ProgrammeBatchCourse> courses = academicService.getAllCourses();
         assertFalse(courses.isEmpty());
         assertTrue(courses.stream().anyMatch(c -> courseA1.getId().equals(c.getId())));
         assertFalse(courses.stream().anyMatch(c -> courseB1.getId().equals(c.getId())));
@@ -515,8 +514,8 @@ public class DirectorAndHodScopeSecurityTest {
         assertNotNull(fetchedBatchB);
 
         // IQAC can access courses across schools
-        MasterCourse fetchedCourseA = academicService.getCourseById(courseA1.getId());
-        MasterCourse fetchedCourseB = academicService.getCourseById(courseB1.getId());
+        ProgrammeBatchCourse fetchedCourseA = academicService.getCourseById(courseA1.getId());
+        ProgrammeBatchCourse fetchedCourseB = academicService.getCourseById(courseB1.getId());
         assertNotNull(fetchedCourseA);
         assertNotNull(fetchedCourseB);
     }

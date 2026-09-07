@@ -12,16 +12,53 @@ import java.util.Optional;
 public interface ProgrammeBatchCourseRepository extends JpaRepository<ProgrammeBatchCourse, String> {
     List<ProgrammeBatchCourse> findByProgrammeBatchId(String programmeBatchId);
     List<ProgrammeBatchCourse> findByProgrammeBatchIdIn(Collection<String> programmeBatchIds);
-    List<ProgrammeBatchCourse> findByMasterCourseId(String masterCourseId);
-    List<ProgrammeBatchCourse> findByProgrammeBatchIdAndMasterCourseId(String programmeBatchId, String masterCourseId);
     Optional<ProgrammeBatchCourse> findByIdAndDeletedAtIsNull(String id);
     List<ProgrammeBatchCourse> findByProgrammeBatchIdAndDeletedAtIsNull(String programmeBatchId);
     List<ProgrammeBatchCourse> findByProgrammeBatchIdInAndDeletedAtIsNull(Collection<String> programmeBatchIds);
-    List<ProgrammeBatchCourse> findByMasterCourseIdAndDeletedAtIsNull(String masterCourseId);
-    List<ProgrammeBatchCourse> findByProgrammeBatchIdAndMasterCourseIdAndDeletedAtIsNull(String programmeBatchId, String masterCourseId);
-    Optional<ProgrammeBatchCourse> findFirstByProgrammeBatchIdAndMasterCourseId(String programmeBatchId, String masterCourseId);
-    boolean existsByProgrammeBatchIdAndMasterCourseIdAndDeletedAtIsNull(String programmeBatchId, String masterCourseId);
-    boolean existsByProgrammeBatchIdAndMasterCourseIdAndIdNotAndDeletedAtIsNull(String programmeBatchId, String masterCourseId, String id);
+
+    default List<ProgrammeBatchCourse> findByMasterCourseId(String masterCourseId) {
+        if (masterCourseId == null) return List.of();
+        return findById(masterCourseId).map(List::of).orElseGet(List::of);
+    }
+
+    default List<ProgrammeBatchCourse> findByProgrammeBatchIdAndMasterCourseId(String programmeBatchId, String masterCourseId) {
+        if (masterCourseId == null) return List.of();
+        return findById(masterCourseId)
+                .filter(c -> programmeBatchId != null && programmeBatchId.equalsIgnoreCase(c.getProgrammeBatchId()))
+                .map(List::of).orElseGet(List::of);
+    }
+
+    default List<ProgrammeBatchCourse> findByMasterCourseIdAndDeletedAtIsNull(String masterCourseId) {
+        if (masterCourseId == null) return List.of();
+        return findByIdAndDeletedAtIsNull(masterCourseId).map(List::of).orElseGet(List::of);
+    }
+
+    default List<ProgrammeBatchCourse> findByProgrammeBatchIdAndMasterCourseIdAndDeletedAtIsNull(String programmeBatchId, String masterCourseId) {
+        if (masterCourseId == null) return List.of();
+        return findByIdAndDeletedAtIsNull(masterCourseId)
+                .filter(c -> programmeBatchId != null && programmeBatchId.equalsIgnoreCase(c.getProgrammeBatchId()))
+                .map(List::of).orElseGet(List::of);
+    }
+
+    default Optional<ProgrammeBatchCourse> findFirstByProgrammeBatchIdAndMasterCourseId(String programmeBatchId, String masterCourseId) {
+        if (masterCourseId == null) return Optional.empty();
+        return findById(masterCourseId)
+                .filter(c -> programmeBatchId != null && programmeBatchId.equalsIgnoreCase(c.getProgrammeBatchId()));
+    }
+
+    default boolean existsByProgrammeBatchIdAndMasterCourseIdAndDeletedAtIsNull(String programmeBatchId, String masterCourseId) {
+        if (masterCourseId == null) return false;
+        return findByIdAndDeletedAtIsNull(masterCourseId)
+                .filter(c -> programmeBatchId != null && programmeBatchId.equalsIgnoreCase(c.getProgrammeBatchId()))
+                .isPresent();
+    }
+
+    default boolean existsByProgrammeBatchIdAndMasterCourseIdAndIdNotAndDeletedAtIsNull(String programmeBatchId, String masterCourseId, String id) {
+        if (masterCourseId == null) return false;
+        return findByIdAndDeletedAtIsNull(masterCourseId)
+                .filter(c -> !c.getId().equals(id) && programmeBatchId != null && programmeBatchId.equalsIgnoreCase(c.getProgrammeBatchId()))
+                .isPresent();
+    }
     default boolean existsByProgrammeBatchIdAndMasterCourseId(String programmeBatchId, String masterCourseId) {
         return existsByProgrammeBatchIdAndMasterCourseIdAndDeletedAtIsNull(programmeBatchId, masterCourseId);
     }
@@ -36,4 +73,7 @@ public interface ProgrammeBatchCourseRepository extends JpaRepository<ProgrammeB
     Optional<ProgrammeBatchCourse> findFirstByProgrammeBatchIdAndCodeIgnoreCaseAndDeletedAtIsNull(String programmeBatchId, String code);
     boolean existsByProgrammeBatchIdAndCodeIgnoreCaseAndDeletedAtIsNull(String programmeBatchId, String code);
     boolean existsByProgrammeBatchIdAndCodeIgnoreCaseAndIdNotAndDeletedAtIsNull(String programmeBatchId, String code, String id);
+
+    List<ProgrammeBatchCourse> findByCode(String code);
+    List<ProgrammeBatchCourse> findByCodeIgnoreCase(String code);
 }

@@ -29,7 +29,6 @@ public class DashboardController {
     private final DepartmentRepository departmentRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
     private final CourseAtrRepository courseAtrRepository;
     private final UserRepository userRepository;
@@ -180,7 +179,7 @@ public class DashboardController {
                 .collect(Collectors.toList());
         Set<String> programmeBatchIds = activeBatches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
         List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(programmeBatchIds);
-        List<MasterCourse> courses = progIds.isEmpty() ? Collections.emptyList() : masterCourseRepository.findByMasterProgrammeIdIn(new ArrayList<>(progIds));
+        List<ProgrammeBatchCourse> courses = offerings;
 
         long allocationsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
                 .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
@@ -345,7 +344,7 @@ public class DashboardController {
         List<ProgrammeBatch> batches = programmeBatchRepository.findByMasterProgrammeId(finalProgId);
         Set<String> programmeBatchIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
         List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(programmeBatchIds);
-        List<MasterCourse> courses = masterCourseRepository.findByMasterProgrammeId(finalProgId);
+        List<ProgrammeBatchCourse> courses = offerings;
 
         List<String> offeringIds = offerings.stream().map(ProgrammeBatchCourse::getId).collect(Collectors.toList());
         long configPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
@@ -444,12 +443,8 @@ public class DashboardController {
             targetOffering = assignedOfferings.get(0);
         }
 
-        MasterCourse course = null;
+        ProgrammeBatchCourse course = targetOffering;
         String offeringId = targetOffering != null ? targetOffering.getId() : null;
-        String targetCrsId = targetOffering != null ? targetOffering.getMasterCourseId() : masterCourseId;
-        if (targetCrsId != null && !targetCrsId.isBlank()) {
-            course = masterCourseRepository.findById(targetCrsId).orElse(null);
-        }
 
         List<CourseOutcome> cos = (offeringId != null) ? courseOutcomeRepository.findByProgrammeBatchCourseId(offeringId) : Collections.emptyList();
         List<String> coIds = cos.stream().map(CourseOutcome::getId).toList();
@@ -487,7 +482,7 @@ public class DashboardController {
         stats.put("assignedProgrammeBatchCoursesCount", assignedOfferings.size());
 
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("masterCourseId", course != null ? course.getId() : targetCrsId);
+        data.put("masterCourseId", course != null ? course.getId() : (effectiveOfferingOrMasterCourseId != null ? effectiveOfferingOrMasterCourseId.trim() : null));
         data.put("programmeBatchCourseId", offeringId);
         data.put("programmeBatchId", targetOffering != null ? targetOffering.getProgrammeBatchId() : programmeBatchId);
         data.put("course", course);

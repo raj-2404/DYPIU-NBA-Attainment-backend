@@ -26,7 +26,6 @@ public class ReportController {
     private final AcademicService academicService;
     private final AttainmentCalculationService attainmentCalculationService;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
     private final CourseAtrRepository courseAtrRepository;

@@ -45,9 +45,8 @@ public class Phase6ProgrammeCoordinatorIntegrationTest {
     private ProgrammeBatchRepository programmeBatchRepository;
 
     @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+    private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
+@Autowired
     private ProgrammeOutcomeRepository programmeOutcomeRepository;
 
     @Autowired
@@ -175,11 +174,11 @@ public class Phase6ProgrammeCoordinatorIntegrationTest {
     }
 
     @Test
-    @DisplayName("TEST C: Step 1 MasterCourse Allocation - Save (Draft) vs Submit Boundary")
+    @DisplayName("TEST C: Step 1 ProgrammeBatchCourse Allocation - Save (Draft) vs Submit Boundary")
     void testStep1AllocationDraftVsSubmitBoundary() {
-        MasterCourse c1 = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse c1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder()
                 .id("crs-test-1-" + UUID.randomUUID().toString().substring(0, 6))
-                .code("CS301")
+                .programmeBatchId(programmeBatchId1).semester(1).code("CS301")
                 .name("Data Structures")
                 .masterProgrammeId(progId1)
                 .credits(3)

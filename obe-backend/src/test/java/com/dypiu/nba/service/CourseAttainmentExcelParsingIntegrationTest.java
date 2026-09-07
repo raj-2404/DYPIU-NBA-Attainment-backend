@@ -37,11 +37,7 @@ public class CourseAttainmentExcelParsingIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -57,7 +53,7 @@ public class CourseAttainmentExcelParsingIntegrationTest {
     private Department department;
     private MasterProgramme programme;
     private ProgrammeBatch batch;
-    private MasterCourse course;
+    private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse offeringA;
     private ProgrammeBatchCourse offeringB;
 
@@ -104,19 +100,19 @@ public class CourseAttainmentExcelParsingIntegrationTest {
                 .durationYears(4)
                 .build());
 
-        course = masterCourseRepository.save(MasterCourse.builder().id("crs-eme3001t-" + suffix).masterProgrammeId(programme.getId())
+        course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1).id("crs-eme3001t-" + suffix).masterProgrammeId(programme.getId())
                 .code("EME 3001T")
                 .name("Computational Techniques")
                 .courseType("THEORY")
-                .semester("5")
+                .semester(5)
                 .credits(4)
                 .build());
 
-        MasterCourse courseB = masterCourseRepository.save(MasterCourse.builder().id("crs-other-" + suffix).masterProgrammeId(programme.getId())
+        ProgrammeBatchCourse courseB = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1).id("crs-other-" + suffix).masterProgrammeId(programme.getId())
                 .code("CSE 2001")
                 .name("Data Structures")
                 .courseType("THEORY")
-                .semester("5")
+                .semester(5)
                 .credits(4)
                 .build());
 

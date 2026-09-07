@@ -27,7 +27,6 @@ public class ApprovalService {
     private final CourseAtrRepository courseAtrRepository;
     private final ProgrammeAtrRepository programmeAtrRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
     private final DepartmentRepository departmentRepository;
@@ -82,32 +81,17 @@ public class ApprovalService {
                 });
             } else if (batchCourseId != null && !batchCourseId.isBlank()) {
                 programmeBatchCourseRepository.findById(batchCourseId).ifPresent(off -> {
-                    if (req.getMasterCourseId() == null) req.setMasterCourseId(off.getMasterCourseId());
-                    if (off.getMasterCourseId() != null) {
-                        masterCourseRepository.findById(off.getMasterCourseId()).ifPresent(c -> {
-                            if (req.getMasterProgrammeId() == null) req.setMasterProgrammeId(c.getMasterProgrammeId());
-                            if (c.getMasterProgrammeId() != null) {
-                                masterProgrammeRepository.findById(c.getMasterProgrammeId()).ifPresent(p -> {
+                    if (off.getProgrammeBatchId() != null) {
+                        programmeBatchRepository.findById(off.getProgrammeBatchId()).ifPresent(batch -> {
+                            if (req.getMasterProgrammeId() == null) req.setMasterProgrammeId(batch.getMasterProgrammeId());
+                            if (batch.getMasterProgrammeId() != null) {
+                                masterProgrammeRepository.findById(batch.getMasterProgrammeId()).ifPresent(p -> {
                                     if (req.getDepartmentId() == null) req.setDepartmentId(p.getDepartmentId());
                                     if (p.getDepartmentId() != null) {
                                         departmentRepository.findById(p.getDepartmentId()).ifPresent(d -> {
                                             if (req.getSchoolId() == null) req.setSchoolId(d.getSchoolId());
                                         });
                                     }
-                                });
-                            }
-                        });
-                    }
-                });
-            } else if (masterCourseId != null && !masterCourseId.isBlank()) {
-                masterCourseRepository.findById(masterCourseId).ifPresent(c -> {
-                    if (req.getMasterProgrammeId() == null) req.setMasterProgrammeId(c.getMasterProgrammeId());
-                    if (c.getMasterProgrammeId() != null) {
-                        masterProgrammeRepository.findById(c.getMasterProgrammeId()).ifPresent(p -> {
-                            if (req.getDepartmentId() == null) req.setDepartmentId(p.getDepartmentId());
-                            if (p.getDepartmentId() != null) {
-                                departmentRepository.findById(p.getDepartmentId()).ifPresent(d -> {
-                                    if (req.getSchoolId() == null) req.setSchoolId(d.getSchoolId());
                                 });
                             }
                         });
@@ -826,13 +810,8 @@ public class ApprovalService {
                         .status("PENDING")
                         .build()).toList();
 
-                MasterCourse mc = pbc.getMasterCourseId() != null ? masterCourseRepository.findById(pbc.getMasterCourseId()).orElse(null) : null;
-                String code = pbc.getCourseCodeOverride() != null && !pbc.getCourseCodeOverride().isBlank()
-                        ? pbc.getCourseCodeOverride()
-                        : (mc != null ? mc.getCode() : "");
-                String name = pbc.getCourseNameOverride() != null && !pbc.getCourseNameOverride().isBlank()
-                        ? pbc.getCourseNameOverride()
-                        : (mc != null ? mc.getName() : "");
+                String code = pbc.getEffectiveCourseCode() != null ? pbc.getEffectiveCourseCode() : "";
+                String name = pbc.getEffectiveCourseName() != null ? pbc.getEffectiveCourseName() : "";
 
                 ApprovalRequest latestReq = requests.stream().max(Comparator.comparing(ApprovalRequest::getSubmittedAt, Comparator.nullsFirst(Comparator.naturalOrder()))).orElse(requests.get(0));
                 String submitterName = latestReq.getSubmittedBy() != null ? latestReq.getSubmittedBy() : (pbc.getCourseCoordinatorName() != null ? pbc.getCourseCoordinatorName() : "Course Coordinator");
@@ -909,13 +888,8 @@ public class ApprovalService {
                             .build();
                 }).toList();
 
-                MasterCourse mc = pbc.getMasterCourseId() != null ? masterCourseRepository.findById(pbc.getMasterCourseId()).orElse(null) : null;
-                String code = pbc.getCourseCodeOverride() != null && !pbc.getCourseCodeOverride().isBlank()
-                        ? pbc.getCourseCodeOverride()
-                        : (mc != null ? mc.getCode() : "");
-                String name = pbc.getCourseNameOverride() != null && !pbc.getCourseNameOverride().isBlank()
-                        ? pbc.getCourseNameOverride()
-                        : (mc != null ? mc.getName() : "");
+                String code = pbc.getEffectiveCourseCode() != null ? pbc.getEffectiveCourseCode() : "";
+                String name = pbc.getEffectiveCourseName() != null ? pbc.getEffectiveCourseName() : "";
 
                 ApprovalRequest latestReq = requests.stream().max(Comparator.comparing(ApprovalRequest::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder()))).orElse(requests.get(0));
 
@@ -958,19 +932,14 @@ public class ApprovalService {
             }
         }
 
-        MasterCourse mc = pbc.getMasterCourseId() != null ? masterCourseRepository.findById(pbc.getMasterCourseId()).orElse(null) : null;
         String batchName = "";
         if (pbc.getProgrammeBatchId() != null) {
             ProgrammeBatch b = programmeBatchRepository.findById(pbc.getProgrammeBatchId()).orElse(null);
             if (b != null && b.getName() != null) batchName = b.getName();
         }
 
-        String code = pbc.getCourseCodeOverride() != null && !pbc.getCourseCodeOverride().isBlank()
-                ? pbc.getCourseCodeOverride()
-                : (mc != null ? mc.getCode() : "");
-        String name = pbc.getCourseNameOverride() != null && !pbc.getCourseNameOverride().isBlank()
-                ? pbc.getCourseNameOverride()
-                : (mc != null ? mc.getName() : "");
+        String code = pbc.getEffectiveCourseCode() != null ? pbc.getEffectiveCourseCode() : "";
+        String name = pbc.getEffectiveCourseName() != null ? pbc.getEffectiveCourseName() : "";
 
         Map<String, Object> pbcMap = new LinkedHashMap<>();
         pbcMap.put("programmeBatchCourseId", pbc.getId());

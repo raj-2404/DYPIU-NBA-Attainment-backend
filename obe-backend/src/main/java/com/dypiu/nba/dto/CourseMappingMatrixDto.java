@@ -17,6 +17,7 @@ import java.util.Map;
 @Builder
 public class CourseMappingMatrixDto {
     private String masterCourseId;
+    private String programmeBatchCourseId;
     private String masterProgrammeId;
     private List<CourseOutcome> cos;
     private List<ProgrammeOutcome> pos;

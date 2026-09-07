@@ -1,6 +1,6 @@
 package com.dypiu.nba.dto;
 
-import com.dypiu.nba.entity.MasterCourse;
+import com.dypiu.nba.entity.ProgrammeBatchCourse;
 import lombok.*;
 
 import java.util.List;
@@ -26,6 +26,6 @@ public class CourseCoordinatorSummaryDto {
     private int poCount;
     private int psoCount;
     private int peoCount;
-    private List<MasterCourse> assignedCourses;
+    private List<ProgrammeBatchCourse> assignedCourses;
     private CourseCoordinatorSetupProgressDto setupProgress;
 }

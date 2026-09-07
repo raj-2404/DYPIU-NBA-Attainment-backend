@@ -23,7 +23,6 @@ public class MappingService {
     private final CoPsoMappingRepository coPsoMappingRepository;
     private final CourseOutcomeRepository courseOutcomeRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final ProgrammeBatchRepository programmeBatchRepository;
     private final DepartmentRepository departmentRepository;
@@ -67,13 +66,7 @@ public class MappingService {
             if (semApproved) return true;
         }
         String progId = null;
-        if (offering.getMasterCourseId() != null) {
-            MasterCourse c = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
-            if (c != null && c.getMasterProgrammeId() != null) {
-                progId = c.getMasterProgrammeId();
-            }
-        }
-        if (progId == null && offering.getProgrammeBatchId() != null) {
+        if (offering.getProgrammeBatchId() != null) {
             ProgrammeBatch b = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
             if (b != null && b.getMasterProgrammeId() != null) {
                 progId = b.getMasterProgrammeId();
@@ -117,13 +110,14 @@ public class MappingService {
                 return;
             }
 
-            if (offering.getMasterCourseId() != null) {
-                MasterCourse c = masterCourseRepository.findById(offering.getMasterCourseId()).orElse(null);
-                if (c != null && c.getMasterProgrammeId() != null) {
-                    if (scope.isProgrammeCoordinator() && !c.getMasterProgrammeId().equals(scope.getRequiredMasterProgrammeId())) {
+            if (offering.getProgrammeBatchId() != null) {
+                ProgrammeBatch b = programmeBatchRepository.findById(offering.getProgrammeBatchId()).orElse(null);
+                if (b != null && b.getMasterProgrammeId() != null) {
+                    String progId = b.getMasterProgrammeId();
+                    if (scope.isProgrammeCoordinator() && !progId.equals(scope.getRequiredMasterProgrammeId())) {
                         throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Course Outcome is outside your assigned programme scope.");
                     }
-                    MasterProgramme p = masterProgrammeRepository.findById(c.getMasterProgrammeId()).orElse(null);
+                    MasterProgramme p = masterProgrammeRepository.findById(progId).orElse(null);
                     if (p != null && p.getDepartmentId() != null) {
                         if (scope.isHod() && !p.getDepartmentId().equals(scope.getRequiredDepartmentId())) {
                             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Course Outcome is outside your assigned department scope.");

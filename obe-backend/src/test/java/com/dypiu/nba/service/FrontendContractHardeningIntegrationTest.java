@@ -45,11 +45,7 @@ public class FrontendContractHardeningIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -68,7 +64,7 @@ public class FrontendContractHardeningIntegrationTest {
     private Department testDept;
     private MasterProgramme testProg;
     private ProgrammeBatch testMasterProgrammeBatch;
-    private MasterCourse testMasterCourse;
+    private ProgrammeBatchCourse testMasterCourse;
     private ProgrammeBatchCourse testOffering;
 
     @BeforeEach
@@ -118,7 +114,7 @@ public class FrontendContractHardeningIntegrationTest {
                 .status("ACTIVE")
                 .build());
 
-        testMasterCourse = masterCourseRepository.save(MasterCourse.builder()
+        testMasterCourse = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(testMasterProgrammeBatch.getId()).semester(1)
                 .id("crs-test-" + UUID.randomUUID().toString().substring(0, 6))
                 .code("CS301-TEST")
                 .name("Computer Networks Test")
@@ -320,7 +316,7 @@ public class FrontendContractHardeningIntegrationTest {
         assertTrue((Boolean) result.get("success"));
 
         // Verify that course coordinator name was updated
-        MasterCourse updatedMasterCourse = masterCourseRepository.findById(testMasterCourse.getId()).orElse(null);
+        ProgrammeBatchCourse updatedMasterCourse = programmeBatchCourseRepository.findById(testMasterCourse.getId()).orElse(null);
         assertNotNull(updatedMasterCourse);
         assertEquals("Prof. Jane Smith", updatedMasterCourse.getCoordinator());
 

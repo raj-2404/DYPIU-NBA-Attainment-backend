@@ -44,11 +44,7 @@ public class CourseOfferingUploadAlignmentTest {
 
     @Mock
     private UploadedDocumentRepository uploadedDocumentRepository;
-
-    @Mock
-    private MasterCourseRepository masterCourseRepository;
-
-    @Mock
+@Mock
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Mock
@@ -87,8 +83,7 @@ public class CourseOfferingUploadAlignmentTest {
                 departmentRepository,
                 masterProgrammeRepository,
                 programmeBatchRepository,
-                masterCourseRepository,
-                programmeBatchCourseRepository,
+                                programmeBatchCourseRepository,
                 approvalRequestRepository
         );
 
@@ -214,7 +209,7 @@ public class CourseOfferingUploadAlignmentTest {
     @DisplayName("TEST 4: Non-existent ProgrammeBatchCourse - HTTP 404 NOT FOUND")
     void testUploadMarks_InvalidCourseOffering_NotFound() {
         when(programmeBatchCourseRepository.existsById("non-existent-offering")).thenReturn(false);
-        when(programmeBatchCourseRepository.findByMasterCourseId("non-existent-offering")).thenReturn(List.of());
+        
 
         StudentMarksRowDto row = StudentMarksRowDto.builder()
                 .srNo(1)

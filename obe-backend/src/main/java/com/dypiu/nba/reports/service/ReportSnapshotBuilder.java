@@ -29,7 +29,6 @@ public class ReportSnapshotBuilder {
     private final ProgrammeBatchRepository programmeBatchRepository;
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-    private final MasterCourseRepository masterCourseRepository;
     private final DepartmentRepository departmentRepository;
     private final SchoolRepository schoolRepository;
 
@@ -295,7 +294,6 @@ public class ReportSnapshotBuilder {
         ProgrammeBatchCourse pbc = programmeBatchCourseRepository.findById(programmeBatchCourseId)
                 .orElseThrow(() -> new IllegalArgumentException("Course offering not found: " + programmeBatchCourseId));
 
-        MasterCourse course = masterCourseRepository.findById(pbc.getMasterCourseId()).orElse(null);
         ProgrammeBatch batch = programmeBatchRepository.findById(pbc.getProgrammeBatchId()).orElse(null);
 
         String schoolName = resolveSchoolNameForOffering(pbc);
@@ -377,8 +375,8 @@ public class ReportSnapshotBuilder {
                 .generatedAt(ZonedDateTime.now())
                 .programmeBatchCourseId(programmeBatchCourseId)
                 .masterCourseId(pbc.getMasterCourseId())
-                .courseCode(pbc.getCourseCodeOverride() != null ? pbc.getCourseCodeOverride() : (course != null ? course.getCode() : ""))
-                .courseName(pbc.getCourseNameOverride() != null ? pbc.getCourseNameOverride() : (course != null ? course.getName() : ""))
+                .courseCode(pbc.getEffectiveCourseCode() != null ? pbc.getEffectiveCourseCode() : "")
+                .courseName(pbc.getEffectiveCourseName() != null ? pbc.getEffectiveCourseName() : "")
                 .semester(pbc.getSemester())
                 .programmeBatchId(pbc.getProgrammeBatchId())
                 .batchName(batch != null ? batch.getName() : "")
@@ -545,12 +543,6 @@ public class ReportSnapshotBuilder {
             ProgrammeBatch batch = programmeBatchRepository.findById(pbc.getProgrammeBatchId()).orElse(null);
             if (batch != null && batch.getMasterProgrammeId() != null) {
                 programme = masterProgrammeRepository.findById(batch.getMasterProgrammeId()).orElse(null);
-            }
-        }
-        if (programme == null && pbc.getMasterCourseId() != null) {
-            MasterCourse course = masterCourseRepository.findById(pbc.getMasterCourseId()).orElse(null);
-            if (course != null && course.getMasterProgrammeId() != null) {
-                programme = masterProgrammeRepository.findById(course.getMasterProgrammeId()).orElse(null);
             }
         }
         return resolveSchoolNameForProgramme(programme);

@@ -44,11 +44,7 @@ public class FileUploadStorageIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -91,7 +87,7 @@ public class FileUploadStorageIntegrationTest {
                 .endYear(2028)
                 .build());
 
-        MasterCourse course = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("crs-up-" + uid)
                 .masterProgrammeId(prog.getId())
                 .code("CS201")

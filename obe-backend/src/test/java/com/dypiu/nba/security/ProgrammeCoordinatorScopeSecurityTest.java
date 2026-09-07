@@ -53,11 +53,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -74,9 +70,9 @@ public class ProgrammeCoordinatorScopeSecurityTest {
     private ProgrammeBatch batchA1;
     private ProgrammeBatch batchA2;
     private ProgrammeBatch batchB1;
-    private MasterCourse courseA1;
-    private MasterCourse courseA2;
-    private MasterCourse courseB1;
+    private ProgrammeBatchCourse courseA1;
+    private ProgrammeBatchCourse courseA2;
+    private ProgrammeBatchCourse courseB1;
 
     private User pcA1;
     private User pcB1;
@@ -181,7 +177,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
                 .build());
 
         // 5. Courses
-        courseA1 = masterCourseRepository.save(MasterCourse.builder()
+        courseA1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA1.getId()).semester(1)
                 .id("crs-pc-a1-" + System.nanoTime())
                 .masterProgrammeId(progA1.getId())
                 .name("Data Structures")
@@ -190,7 +186,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
                 .courseType("CORE")
                 .build());
 
-        courseA2 = masterCourseRepository.save(MasterCourse.builder()
+        courseA2 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchA2.getId()).semester(1)
                 .id("crs-pc-a2-" + System.nanoTime())
                 .masterProgrammeId(progA2.getId())
                 .name("Machine Learning")
@@ -199,7 +195,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
                 .courseType("CORE")
                 .build());
 
-        courseB1 = masterCourseRepository.save(MasterCourse.builder()
+        courseB1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batchB1.getId()).semester(1)
                 .id("crs-pc-b1-" + System.nanoTime())
                 .masterProgrammeId(progB1.getId())
                 .name("Financial Accounting")
@@ -437,7 +433,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
     @DisplayName("Case 16: PC gets all courses -> returns only courses for assigned programme")
     void testCase16_PCGetAllCoursesReturnsOnlyAssigned() {
         authenticateUser(pcA1);
-        List<MasterCourse> courses = academicService.getAllCourses();
+        List<ProgrammeBatchCourse> courses = academicService.getAllCourses();
         assertNotNull(courses);
         assertEquals(1, courses.size());
         assertEquals(courseA1.getId(), courses.get(0).getId());
@@ -447,7 +443,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
     @DisplayName("Case 17: PC gets course by ID for assigned programme -> 200 OK")
     void testCase17_PCGetCourseByIdAssigned() {
         authenticateUser(pcA1);
-        MasterCourse c = academicService.getCourseById(courseA1.getId());
+        ProgrammeBatchCourse c = academicService.getCourseById(courseA1.getId());
         assertNotNull(c);
         assertEquals(courseA1.getId(), c.getId());
     }
@@ -468,14 +464,14 @@ public class ProgrammeCoordinatorScopeSecurityTest {
     @DisplayName("Case 19: PC creates course for assigned programme -> 200 OK")
     void testCase19_PCCreatesCourseForAssignedProgramme() {
         authenticateUser(pcA1);
-        MasterCourse newCourse = MasterCourse.builder()
+        ProgrammeBatchCourse newCourse = ProgrammeBatchCourse.builder().programmeBatchId(batchA1.getId()).semester(1)
                 .masterProgrammeId(progA1.getId())
                 .name("Operating Systems")
                 .code("CS301")
                 .credits(4)
                 .courseType("CORE")
                 .build();
-        MasterCourse saved = academicService.saveCourse(newCourse);
+        ProgrammeBatchCourse saved = academicService.saveCourse(newCourse);
         assertNotNull(saved);
         assertEquals(progA1.getId(), saved.getMasterProgrammeId());
     }
@@ -484,7 +480,7 @@ public class ProgrammeCoordinatorScopeSecurityTest {
     @DisplayName("Case 20: PC creates course for another programme -> 403 Forbidden")
     void testCase20_PCCreatesCourseForOtherProgrammeForbidden() {
         authenticateUser(pcA1);
-        MasterCourse otherProgCourse = MasterCourse.builder()
+        ProgrammeBatchCourse otherProgCourse = ProgrammeBatchCourse.builder().programmeBatchId(batchB1.getId()).semester(1)
                 .masterProgrammeId(progB1.getId())
                 .name("Marketing Management")
                 .code("MBA201")

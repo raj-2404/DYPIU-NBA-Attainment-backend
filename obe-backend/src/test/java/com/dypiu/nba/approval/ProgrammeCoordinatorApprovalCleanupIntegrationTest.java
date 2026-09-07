@@ -47,11 +47,7 @@ public class ProgrammeCoordinatorApprovalCleanupIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -95,7 +91,7 @@ public class ProgrammeCoordinatorApprovalCleanupIntegrationTest {
         ProgrammeBatch batch1 = programmeBatchRepository.save(ProgrammeBatch.builder().id(batchId1).masterProgrammeId(progId1).name("2026-2030 Batch").startYear(2026).endYear(2030).status("ACTIVE").coordinatorEmail("pc_clean@dypiu.ac.in").build());
         ProgrammeBatch batch2 = programmeBatchRepository.save(ProgrammeBatch.builder().id(batchId2).masterProgrammeId(progId2).name("2026-2030 IT Batch").startYear(2026).endYear(2030).status("ACTIVE").coordinatorEmail("other_pc@dypiu.ac.in").build());
 
-        MasterCourse mc1 = masterCourseRepository.save(MasterCourse.builder().id(courseId1).masterProgrammeId(progId1).code("CS301").name("Compiler Design").credits(4).courseType("CORE").status("ACTIVE").build());
+        
 
         ProgrammeBatchCourse pbc1 = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().id(pbcId1).programmeBatchId(batchId1).masterCourseId(courseId1).semester(5).courseCodeOverride("CS301").courseNameOverride("Compiler Design").courseCoordinatorName("Dr. Turing").courseCoordinatorId(101L).status("ACTIVE").build());
 

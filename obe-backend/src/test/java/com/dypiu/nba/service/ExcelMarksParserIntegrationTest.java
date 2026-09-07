@@ -38,11 +38,7 @@ public class ExcelMarksParserIntegrationTest {
 
     @Autowired
     private ProgrammeBatchRepository programmeBatchRepository;
-
-    @Autowired
-    private MasterCourseRepository masterCourseRepository;
-
-    @Autowired
+@Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
 
     @Autowired
@@ -122,7 +118,7 @@ public class ExcelMarksParserIntegrationTest {
                 .status(StudentStatus.ENROLLED)
                 .build());
 
-        MasterCourse course = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("course-parse-" + uid)
                 .masterProgrammeId(prog.getId())
                 .name("Machine Learning")
@@ -230,7 +226,7 @@ public class ExcelMarksParserIntegrationTest {
                 .endYear(2028)
                 .build());
 
-        MasterCourse course = masterCourseRepository.save(MasterCourse.builder()
+        ProgrammeBatchCourse course = programmeBatchCourseRepository.save(ProgrammeBatchCourse.builder().programmeBatchId(batch.getId()).semester(1)
                 .id("course-srv-" + uid)
                 .masterProgrammeId(prog.getId())
                 .name("Database Management Systems")
