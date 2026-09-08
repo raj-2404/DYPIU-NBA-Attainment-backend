@@ -154,26 +154,57 @@ public class AuthService {
                 ? explicitRoles.contains("IQAC")
                 : (user.getRole() == UserRole.IQAC);
 
+        // Check contextual DB matches if not explicitly restricted
+        List<com.dypiu.nba.entity.School> allSchools = schoolRepository.findAll();
+        com.dypiu.nba.entity.School matchedSchool = allSchools.stream()
+                .filter(s -> (user.getSchoolId() != null && user.getSchoolId().equalsIgnoreCase(s.getId()))
+                        || (s.getDirectorId() != null && Objects.equals(s.getDirectorId(), user.getId()))
+                        || (s.getDirectorEmail() != null && s.getDirectorEmail().equalsIgnoreCase(user.getEmail()))
+                        || (s.getDeanEmail() != null && s.getDeanEmail().equalsIgnoreCase(user.getEmail())))
+                .findFirst().orElse(null);
+
         boolean isDirectorEligible = hasExplicitRoles
                 ? explicitRoles.contains("DIRECTOR")
-                : (user.getRole() == UserRole.DIRECTOR);
+                : (user.getRole() == UserRole.DIRECTOR || matchedSchool != null);
+
+        List<com.dypiu.nba.entity.Department> allDepts = departmentRepository.findAll();
+        com.dypiu.nba.entity.Department matchedDept = allDepts.stream()
+                .filter(d -> (user.getDepartmentId() != null && user.getDepartmentId().equalsIgnoreCase(d.getId()))
+                        || (d.getHodEmail() != null && d.getHodEmail().equalsIgnoreCase(user.getEmail()))
+                        || (d.getHodName() != null && d.getHodName().equalsIgnoreCase(user.getName()))
+                        || (d.getHod() != null && d.getHod().equalsIgnoreCase(user.getName())))
+                .findFirst().orElse(null);
 
         boolean isHodEligible = hasExplicitRoles
                 ? explicitRoles.contains("HOD")
-                : (user.getRole() == UserRole.HOD);
+                : (user.getRole() == UserRole.HOD || matchedDept != null);
+
+        List<com.dypiu.nba.entity.ProgrammeBatch> allBatches = programmeBatchRepository.findAll();
+        com.dypiu.nba.entity.ProgrammeBatch matchedBatch = allBatches.stream()
+                .filter(b -> (b.getCoordinatorEmail() != null && b.getCoordinatorEmail().equalsIgnoreCase(user.getEmail()))
+                        || (b.getCoordinator() != null && b.getCoordinator().equalsIgnoreCase(user.getName()))
+                        || (b.getCoordinatorId() != null && Objects.equals(b.getCoordinatorId(), user.getId()))
+                        || (user.getMasterProgrammeId() != null && user.getMasterProgrammeId().equals(b.getMasterProgrammeId())))
+                .findFirst().orElse(null);
 
         boolean isPcEligible = hasExplicitRoles
                 ? (explicitRoles.contains("PROGRAMME_COORDINATOR") || explicitRoles.contains("PC"))
-                : (user.getRole() == UserRole.PROGRAMME_COORDINATOR);
+                : (user.getRole() == UserRole.PROGRAMME_COORDINATOR || matchedBatch != null);
+
+        List<com.dypiu.nba.entity.ProgrammeBatchCourse> courses = programmeBatchCourseRepository.findAll();
+        int assignedCount = (int) courses.stream().filter(c -> c.getDeletedAt() == null && (
+                (c.getCourseCoordinatorId() != null && Objects.equals(c.getCourseCoordinatorId(), user.getId()))
+                || (c.getCourseCoordinatorName() != null && c.getCourseCoordinatorName().equalsIgnoreCase(user.getName()))
+                || (c.getAssignedFaculty() != null && (c.getAssignedFaculty().contains(user.getEmail()) || c.getAssignedFaculty().contains(user.getName())))
+        )).count();
 
         boolean isCcEligible = hasExplicitRoles
                 ? (explicitRoles.contains("COURSE_COORDINATOR") || explicitRoles.contains("FACULTY") || explicitRoles.contains("CC"))
-                : (user.getRole() == UserRole.FACULTY);
+                : (user.getRole() == UserRole.FACULTY || assignedCount > 0);
 
         List<UserProfileRoleDto> profiles = new ArrayList<>();
-        Set<String> seenKeys = new HashSet<>();
 
-        // 1. IQAC Profile
+        // 1. IQAC Profile (Max 1)
         if (isIqacEligible) {
             boolean isCur = "IQAC".equalsIgnoreCase(activeRole);
             profiles.add(UserProfileRoleDto.builder()
@@ -185,170 +216,78 @@ public class AuthService {
                     .isActive(isCur)
                     .isCurrent(isCur)
                     .build());
-            seenKeys.add("IQAC");
         }
 
-        // 2. DIRECTOR Profile(s)
-        List<com.dypiu.nba.entity.School> schools = schoolRepository.findAll();
-        for (com.dypiu.nba.entity.School school : schools) {
-            boolean matchesUserSchool = user.getSchoolId() != null && user.getSchoolId().equalsIgnoreCase(school.getId());
-            boolean matchesDirectorFields = (school.getDirectorId() != null && Objects.equals(school.getDirectorId(), user.getId()))
-                    || (school.getDirectorEmail() != null && school.getDirectorEmail().equalsIgnoreCase(user.getEmail()))
-                    || (school.getDeanEmail() != null && school.getDeanEmail().equalsIgnoreCase(user.getEmail()));
-
-            boolean shouldIncludeSchool = hasExplicitRoles
-                    ? (isDirectorEligible && (matchesUserSchool || matchesDirectorFields))
-                    : (isDirectorEligible ? matchesUserSchool : matchesDirectorFields);
-
-            if (shouldIncludeSchool) {
-                String key = "DIRECTOR_" + school.getId();
-                if (!seenKeys.contains(key)) {
-                    seenKeys.add(key);
-                    boolean isCur = "DIRECTOR".equalsIgnoreCase(activeRole);
-                    profiles.add(UserProfileRoleDto.builder()
-                            .role("DIRECTOR")
-                            .roleCode("DIRECTOR")
-                            .title("Director / Dean")
-                            .displayName("Director - " + (school.getName() != null ? school.getName() : school.getId()))
-                            .description("School-wide executive authority for " + (school.getName() != null ? school.getName() : "assigned school"))
-                            .schoolId(school.getId())
-                            .schoolName(school.getName())
-                            .isActive(isCur)
-                            .isCurrent(isCur)
-                            .build());
-                }
-            }
-        }
-        if (isDirectorEligible && profiles.stream().noneMatch(p -> "DIRECTOR".equals(p.getRole()))) {
+        // 2. DIRECTOR Profile (Max 1)
+        if (isDirectorEligible) {
+            String sId = matchedSchool != null ? matchedSchool.getId() : user.getSchoolId();
+            String sName = matchedSchool != null ? matchedSchool.getName() : null;
             boolean isCur = "DIRECTOR".equalsIgnoreCase(activeRole);
             profiles.add(UserProfileRoleDto.builder()
                     .role("DIRECTOR")
                     .roleCode("DIRECTOR")
                     .title("Director / Dean")
-                    .displayName("Director")
-                    .description("School-wide executive authority")
-                    .schoolId(user.getSchoolId())
+                    .displayName(sName != null ? "Director (" + sName + ")" : "Director / Dean")
+                    .description("School-wide executive authority" + (sName != null ? " for " + sName : ""))
+                    .schoolId(sId)
+                    .schoolName(sName)
                     .isActive(isCur)
                     .isCurrent(isCur)
                     .build());
-            seenKeys.add("DIRECTOR_DEFAULT");
         }
 
-        // 3. HOD Profile(s)
-        List<com.dypiu.nba.entity.Department> departments = departmentRepository.findAll();
-        for (com.dypiu.nba.entity.Department dept : departments) {
-            boolean matchesUserDept = user.getDepartmentId() != null && user.getDepartmentId().equalsIgnoreCase(dept.getId());
-            boolean matchesHodFields = (dept.getHodEmail() != null && dept.getHodEmail().equalsIgnoreCase(user.getEmail()))
-                    || (dept.getHodName() != null && dept.getHodName().equalsIgnoreCase(user.getName()))
-                    || (dept.getHod() != null && dept.getHod().equalsIgnoreCase(user.getName()));
-
-            boolean shouldIncludeDept = hasExplicitRoles
-                    ? (isHodEligible && (matchesUserDept || matchesHodFields))
-                    : (isHodEligible ? matchesUserDept : matchesHodFields);
-
-            if (shouldIncludeDept) {
-                String key = "HOD_" + dept.getId();
-                if (!seenKeys.contains(key)) {
-                    seenKeys.add(key);
-                    boolean isCur = "HOD".equalsIgnoreCase(activeRole);
-                    profiles.add(UserProfileRoleDto.builder()
-                            .role("HOD")
-                            .roleCode("HOD")
-                            .title("Head of Department")
-                            .displayName("Head of Department (" + (dept.getName() != null ? dept.getName() : dept.getId()) + ")")
-                            .description("Department-wide curriculum and batch management for " + (dept.getName() != null ? dept.getName() : "assigned department"))
-                            .schoolId(dept.getSchoolId())
-                            .departmentId(dept.getId())
-                            .departmentName(dept.getName())
-                            .isActive(isCur)
-                            .isCurrent(isCur)
-                            .build());
-                }
-            }
-        }
-        if (isHodEligible && profiles.stream().noneMatch(p -> "HOD".equals(p.getRole()))) {
+        // 3. HOD Profile (Max 1)
+        if (isHodEligible) {
+            String dId = matchedDept != null ? matchedDept.getId() : user.getDepartmentId();
+            String dName = matchedDept != null ? matchedDept.getName() : null;
+            String sId = matchedDept != null ? matchedDept.getSchoolId() : user.getSchoolId();
             boolean isCur = "HOD".equalsIgnoreCase(activeRole);
             profiles.add(UserProfileRoleDto.builder()
                     .role("HOD")
                     .roleCode("HOD")
                     .title("Head of Department")
-                    .displayName("Head of Department")
-                    .description("Department-wide curriculum and batch management")
-                    .departmentId(user.getDepartmentId())
-                    .schoolId(user.getSchoolId())
+                    .displayName(dName != null ? "Head of Department (" + dName + ")" : "Head of Department")
+                    .description("Department-wide curriculum and batch management" + (dName != null ? " for " + dName : ""))
+                    .schoolId(sId)
+                    .departmentId(dId)
+                    .departmentName(dName)
                     .isActive(isCur)
                     .isCurrent(isCur)
                     .build());
-            seenKeys.add("HOD_DEFAULT");
         }
 
-        // 4. PROGRAMME_COORDINATOR Profile(s)
-        List<com.dypiu.nba.entity.ProgrammeBatch> batches = programmeBatchRepository.findAll();
-        for (com.dypiu.nba.entity.ProgrammeBatch batch : batches) {
-            boolean isPc = (batch.getCoordinatorEmail() != null && batch.getCoordinatorEmail().equalsIgnoreCase(user.getEmail()))
-                    || (batch.getCoordinator() != null && batch.getCoordinator().equalsIgnoreCase(user.getName()))
-                    || (batch.getCoordinatorId() != null && Objects.equals(batch.getCoordinatorId(), user.getId()))
-                    || (user.getMasterProgrammeId() != null && user.getMasterProgrammeId().equals(batch.getMasterProgrammeId()));
-
-            boolean shouldIncludeBatch = hasExplicitRoles
-                    ? (isPcEligible && isPc)
-                    : (isPcEligible ? true : isPc);
-
-            if (shouldIncludeBatch) {
-                String key = "PC_" + batch.getId();
-                if (!seenKeys.contains(key)) {
-                    seenKeys.add(key);
-                    String batchDeptId = masterProgrammeRepository.findById(batch.getMasterProgrammeId())
-                            .map(com.dypiu.nba.entity.MasterProgramme::getDepartmentId)
-                            .orElse(user.getDepartmentId());
-
-                    boolean isCur = "PROGRAMME_COORDINATOR".equalsIgnoreCase(activeRole);
-                    profiles.add(UserProfileRoleDto.builder()
-                            .role("PROGRAMME_COORDINATOR")
-                            .roleCode("PROGRAMME_COORDINATOR")
-                            .title("Programme Coordinator")
-                            .displayName("Programme Coordinator - " + (batch.getName() != null ? batch.getName() : batch.getId()))
-                            .description("Programme batch target configuration & OBE attainment tracking")
-                            .departmentId(batchDeptId)
-                            .masterProgrammeId(batch.getMasterProgrammeId())
-                            .programmeBatchId(batch.getId())
-                            .programmeBatchName(batch.getName())
-                            .isActive(isCur)
-                            .isCurrent(isCur)
-                            .build());
-                }
+        // 4. PROGRAMME_COORDINATOR Profile (Max 1)
+        if (isPcEligible) {
+            String pBatchId = matchedBatch != null ? matchedBatch.getId() : null;
+            String pBatchName = matchedBatch != null ? matchedBatch.getName() : null;
+            String mProgId = matchedBatch != null ? matchedBatch.getMasterProgrammeId() : user.getMasterProgrammeId();
+            String dId = user.getDepartmentId();
+            if (mProgId != null) {
+                dId = masterProgrammeRepository.findById(mProgId)
+                        .map(com.dypiu.nba.entity.MasterProgramme::getDepartmentId)
+                        .orElse(user.getDepartmentId());
             }
-        }
-        if (isPcEligible && profiles.stream().noneMatch(p -> "PROGRAMME_COORDINATOR".equals(p.getRole()))) {
-            boolean isCur = "PROGRAMME_COORDINATOR".equalsIgnoreCase(activeRole);
+
+            boolean isCur = "PROGRAMME_COORDINATOR".equalsIgnoreCase(activeRole) || "PC".equalsIgnoreCase(activeRole);
             profiles.add(UserProfileRoleDto.builder()
                     .role("PROGRAMME_COORDINATOR")
                     .roleCode("PROGRAMME_COORDINATOR")
                     .title("Programme Coordinator")
-                    .displayName("Programme Coordinator")
+                    .displayName(pBatchName != null ? "Programme Coordinator (" + pBatchName + ")" : "Programme Coordinator")
                     .description("Programme batch target configuration & OBE attainment tracking")
-                    .departmentId(user.getDepartmentId())
-                    .masterProgrammeId(user.getMasterProgrammeId())
+                    .departmentId(dId)
+                    .masterProgrammeId(mProgId)
+                    .programmeBatchId(pBatchId)
+                    .programmeBatchName(pBatchName)
+                    .schoolId(user.getSchoolId())
                     .isActive(isCur)
                     .isCurrent(isCur)
                     .build());
-            seenKeys.add("PC_DEFAULT");
         }
 
-        // 5. COURSE_COORDINATOR / FACULTY Profile
-        List<com.dypiu.nba.entity.ProgrammeBatchCourse> courses = programmeBatchCourseRepository.findAll();
-        int assignedCount = (int) courses.stream().filter(c -> c.getDeletedAt() == null && (
-                (c.getCourseCoordinatorId() != null && Objects.equals(c.getCourseCoordinatorId(), user.getId()))
-                || (c.getCourseCoordinatorName() != null && c.getCourseCoordinatorName().equalsIgnoreCase(user.getName()))
-                || (c.getAssignedFaculty() != null && (c.getAssignedFaculty().contains(user.getEmail()) || c.getAssignedFaculty().contains(user.getName())))
-        )).count();
-
-        boolean shouldIncludeCc = hasExplicitRoles
-                ? isCcEligible
-                : (isCcEligible || assignedCount > 0);
-
-        if (shouldIncludeCc) {
-            boolean isCur = "COURSE_COORDINATOR".equalsIgnoreCase(activeRole) || "FACULTY".equalsIgnoreCase(activeRole);
+        // 5. COURSE_COORDINATOR / FACULTY Profile (Max 1)
+        if (isCcEligible) {
+            boolean isCur = "COURSE_COORDINATOR".equalsIgnoreCase(activeRole) || "FACULTY".equalsIgnoreCase(activeRole) || "CC".equalsIgnoreCase(activeRole);
             profiles.add(UserProfileRoleDto.builder()
                     .role("COURSE_COORDINATOR")
                     .roleCode("COURSE_COORDINATOR")
@@ -363,7 +302,7 @@ public class AuthService {
                     .build());
         }
 
-        // If no profiles discovered, at least include user's primary role
+        // If no profiles discovered, at least include user's primary role (Max 1)
         if (profiles.isEmpty()) {
             profiles.add(UserProfileRoleDto.builder()
                     .role(user.getRole().name())
