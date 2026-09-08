@@ -139,6 +139,21 @@ public class OutcomeController {
                 .build());
     }
 
+    @GetMapping({
+            "/programme-batches/{programmeBatchId}/review",
+            "/programme-batches/{programmeBatchId}/bundle/review",
+            "/batches/{programmeBatchId}/review",
+            "/batches/{programmeBatchId}/bundle/review",
+            "/master-programmes/{programmeBatchId}/review"
+    })
+    public ResponseEntity<ApiResponse<com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto>> getProgrammeBatchOutcomeReviewBundle(
+            @PathVariable String programmeBatchId) {
+        return ResponseEntity.ok(ApiResponse.<com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto>builder()
+                .success(true)
+                .data(outcomeService.getProgrammeBatchOutcomeReviewBundle(programmeBatchId))
+                .build());
+    }
+
     @RequestMapping(
             value = {
                     "/programme-batches/{programmeBatchId}",

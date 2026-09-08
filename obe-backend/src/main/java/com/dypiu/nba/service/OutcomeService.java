@@ -1259,6 +1259,35 @@ public class OutcomeService {
         List<PeoOutcome> peos = getPEOsByProgramme(programmeOrProgrammeBatchId);
         ProgrammeTargetDto targets = getProgrammeTargets(programmeOrProgrammeBatchId);
 
+        String targetKey = "target-" + (batchId != null ? batchId : masterProgId);
+        ApprovalRequest req = approvalRequestRepository.findAll().stream()
+                .filter(a -> a.getType() == ApprovalType.PO_PSO_TARGETS &&
+                        (targetKey.equalsIgnoreCase(a.getResourceId()) || (batchId != null && batchId.equalsIgnoreCase(a.getProgrammeBatchId())) || (masterProgId != null && masterProgId.equalsIgnoreCase(a.getMasterProgrammeId()))))
+                .max((a, b) -> {
+                    ZonedDateTime ta = a.getUpdatedAt() != null ? a.getUpdatedAt() : (a.getApprovedAt() != null ? a.getApprovedAt() : (a.getSubmittedAt() != null ? a.getSubmittedAt() : a.getCreatedAt()));
+                    ZonedDateTime tb = b.getUpdatedAt() != null ? b.getUpdatedAt() : (b.getApprovedAt() != null ? b.getApprovedAt() : (b.getSubmittedAt() != null ? b.getSubmittedAt() : b.getCreatedAt()));
+                    if (ta != null && tb != null) return ta.compareTo(tb);
+                    if (ta == null && tb != null) return -1;
+                    if (ta != null && tb == null) return 1;
+                    return a.getId().compareTo(b.getId());
+                })
+                .orElse(null);
+
+        String status = "DRAFT";
+        if (req != null && req.getStatus() != null) {
+            status = req.getStatus().name();
+        }
+
+        boolean isSubmittedForReview = req != null && (
+                req.getStatus() == ApprovalStatus.PENDING ||
+                req.getStatus() == ApprovalStatus.SUBMITTED ||
+                req.getStatus() == ApprovalStatus.PENDING_APPROVAL ||
+                req.getStatus() == ApprovalStatus.APPROVED ||
+                req.getStatus() == ApprovalStatus.REVISION_REQUESTED ||
+                req.getStatus() == ApprovalStatus.NEEDS_REVISION
+        );
+        boolean canApprove = req != null && (req.getStatus() == ApprovalStatus.PENDING || req.getStatus() == ApprovalStatus.SUBMITTED || req.getStatus() == ApprovalStatus.PENDING_APPROVAL);
+
         return com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto.builder()
                 .programmeBatchId(batchId)
                 .masterProgrammeId(masterProgId)
@@ -1267,7 +1296,32 @@ public class OutcomeService {
                 .peos(peos)
                 .poTargets(targets != null ? targets.getPoTargets() : null)
                 .psoTargets(targets != null ? targets.getPsoTargets() : null)
+                .status(status)
+                .approvalRequestId(req != null ? req.getId() : null)
+                .isSubmittedForReview(isSubmittedForReview)
+                .canApprove(canApprove)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto getProgrammeBatchOutcomeReviewBundle(String programmeOrProgrammeBatchId) {
+        com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto bundle = getProgrammeBatchOutcomeBundle(programmeOrProgrammeBatchId);
+        if (!Boolean.TRUE.equals(bundle.getIsSubmittedForReview())) {
+            return com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto.builder()
+                    .programmeBatchId(bundle.getProgrammeBatchId())
+                    .masterProgrammeId(bundle.getMasterProgrammeId())
+                    .pos(Collections.emptyList())
+                    .psos(Collections.emptyList())
+                    .peos(Collections.emptyList())
+                    .poTargets(Collections.emptyMap())
+                    .psoTargets(Collections.emptyMap())
+                    .status("DRAFT")
+                    .approvalRequestId(null)
+                    .isSubmittedForReview(false)
+                    .canApprove(false)
+                    .build();
+        }
+        return bundle;
     }
 
     @Transactional

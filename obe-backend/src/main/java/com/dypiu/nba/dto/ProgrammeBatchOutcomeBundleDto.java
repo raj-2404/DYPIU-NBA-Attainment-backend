@@ -24,4 +24,8 @@ public class ProgrammeBatchOutcomeBundleDto {
     private List<PeoOutcome> peos;
     private Map<String, BigDecimal> poTargets;
     private Map<String, BigDecimal> psoTargets;
+    private String status;
+    private String approvalRequestId;
+    private Boolean isSubmittedForReview;
+    private Boolean canApprove;
 }

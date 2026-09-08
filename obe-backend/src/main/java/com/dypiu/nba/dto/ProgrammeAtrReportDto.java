@@ -19,6 +19,9 @@ public class ProgrammeAtrReportDto {
     private Boolean isUnlocked;
     private String unlockReason;
     private String batchStatus;
+    private String approvalRequestId;
+    private Boolean isSubmittedForReview;
+    private Boolean canApprove;
 
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ProgrammeSummary {

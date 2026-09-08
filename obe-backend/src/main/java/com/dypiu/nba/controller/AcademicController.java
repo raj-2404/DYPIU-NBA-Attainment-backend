@@ -749,6 +749,35 @@ public class AcademicController {
                 .build());
     }
 
+    @GetMapping({
+            "/programme-batches/{programmeBatchId}/semesters/{semester}/review-courses",
+            "/batches/{programmeBatchId}/semesters/{semester}/review-courses",
+            "/programme-batches/{programmeBatchId}/semesters/{semester}/review",
+            "/batches/{programmeBatchId}/semesters/{semester}/review"
+    })
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getSemesterReviewCourses(
+            @PathVariable String programmeBatchId,
+            @PathVariable Integer semester) {
+        return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
+                .success(true)
+                .data(academicService.getSemesterReviewCourses(programmeBatchId, semester))
+                .build());
+    }
+
+    @GetMapping({
+            "/programme-batches/{programmeBatchId}/semesters/submitted-allocations",
+            "/batches/{programmeBatchId}/semesters/submitted-allocations",
+            "/programme-batches/{programmeBatchId}/submitted-allocations",
+            "/batches/{programmeBatchId}/submitted-allocations"
+    })
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSubmittedSemesterAllocations(
+            @PathVariable String programmeBatchId) {
+        return ResponseEntity.ok(ApiResponse.<List<Map<String, Object>>>builder()
+                .success(true)
+                .data(academicService.getSubmittedSemesterAllocations(programmeBatchId))
+                .build());
+    }
+
     @GetMapping({"/programme-batches/{id}/semesters/{semester}/readiness", "/batches/{id}/semesters/{semester}/readiness"})
     public ResponseEntity<ApiResponse<com.dypiu.nba.dto.SemesterReadinessDto>> getSemesterReadiness(
             @PathVariable String id,
@@ -786,13 +815,23 @@ public class AcademicController {
     }
 
     // --- Programme-Batch ATR ---
-    @GetMapping("/programme-batches/{programmeBatchId}/atr")
+    @GetMapping({"/programme-batches/{programmeBatchId}/atr", "/batches/{programmeBatchId}/atr"})
     public ResponseEntity<ApiResponse<com.dypiu.nba.dto.ProgrammeAtrReportDto>> getProgrammeBatchAtr(
             @PathVariable String programmeBatchId) {
         ProgrammeBatch batch = academicService.getBatchById(programmeBatchId);
         return ResponseEntity.ok(ApiResponse.<com.dypiu.nba.dto.ProgrammeAtrReportDto>builder()
                 .success(true)
                 .data(atrService.getProgrammeAtrReport(batch.getMasterProgrammeId(), programmeBatchId))
+                .build());
+    }
+
+    @GetMapping({"/programme-batches/{programmeBatchId}/atr/review", "/batches/{programmeBatchId}/atr/review"})
+    public ResponseEntity<ApiResponse<com.dypiu.nba.dto.ProgrammeAtrReportDto>> getProgrammeBatchAtrReview(
+            @PathVariable String programmeBatchId) {
+        ProgrammeBatch batch = academicService.getBatchById(programmeBatchId);
+        return ResponseEntity.ok(ApiResponse.<com.dypiu.nba.dto.ProgrammeAtrReportDto>builder()
+                .success(true)
+                .data(atrService.getProgrammeAtrReviewReport(batch.getMasterProgrammeId(), programmeBatchId))
                 .build());
     }
 

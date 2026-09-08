@@ -419,12 +419,11 @@ public class AtrService {
         System.out.println("[AtrService] saveProgrammeAtr called | id: " + (atr != null ? atr.getId() : "null") + " | programmeBatchId: " + (atr != null ? atr.getProgrammeBatchId() : "null"));
         if (atr != null && atr.getProgrammeBatchId() != null) {
             enforceBatchScope(atr.getProgrammeBatchId());
-            batchLifecycleService.enforceBatchEditability(atr.getProgrammeBatchId());
-            if (approvalService != null && approvalService.isProgrammeAtrApproved(atr.getProgrammeBatchId())) {
-                throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify approved Programme ATR. A revision must be requested first.");
-            }
             ProgrammeAtr existing = programmeAtrRepository.findByProgrammeBatchId(atr.getProgrammeBatchId()).orElse(null);
             if (existing != null) {
+                if (existing.getStatus() == ProgrammeAtrStatus.APPROVED || existing.getStatus() == ProgrammeAtrStatus.SUBMITTED_FOR_VERIFICATION || (approvalService != null && approvalService.isProgrammeAtrApproved(atr.getProgrammeBatchId()))) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "Cannot modify submitted or approved Programme ATR. A revision must be requested first.");
+                }
                 atr.setId(existing.getId());
                 if (atr.getStatus() == null) atr.setStatus(existing.getStatus());
                 if (atr.getSubmittedBy() == null) atr.setSubmittedBy(existing.getSubmittedBy());
@@ -1035,6 +1034,37 @@ public class AtrService {
                 .orElse(defaultStatus);
         String patrId = existingAtr.map(ProgrammeAtr::getId).orElse(null);
 
+        final String finalBatchId = batch.getId();
+        String atrKey = "atr-prog-" + finalBatchId;
+        ApprovalRequest req = approvalRequestRepository.findAll().stream()
+                .filter(a -> a.getType() == ApprovalType.PROGRAMME_ATR &&
+                        (atrKey.equalsIgnoreCase(a.getResourceId()) || finalBatchId.equalsIgnoreCase(a.getProgrammeBatchId())))
+                .max((a, b) -> {
+                    ZonedDateTime ta = a.getUpdatedAt() != null ? a.getUpdatedAt() : (a.getApprovedAt() != null ? a.getApprovedAt() : (a.getSubmittedAt() != null ? a.getSubmittedAt() : a.getCreatedAt()));
+                    ZonedDateTime tb = b.getUpdatedAt() != null ? b.getUpdatedAt() : (b.getApprovedAt() != null ? b.getApprovedAt() : (b.getSubmittedAt() != null ? b.getSubmittedAt() : b.getCreatedAt()));
+                    if (ta != null && tb != null) return ta.compareTo(tb);
+                    if (ta == null && tb != null) return -1;
+                    if (ta != null && tb == null) return 1;
+                    return a.getId().compareTo(b.getId());
+                })
+                .orElse(null);
+
+        boolean isSubmittedForReview = (req != null && (
+                req.getStatus() == ApprovalStatus.PENDING ||
+                req.getStatus() == ApprovalStatus.SUBMITTED ||
+                req.getStatus() == ApprovalStatus.PENDING_APPROVAL ||
+                req.getStatus() == ApprovalStatus.APPROVED ||
+                req.getStatus() == ApprovalStatus.REVISION_REQUESTED ||
+                req.getStatus() == ApprovalStatus.NEEDS_REVISION
+        )) || (existingAtr.isPresent() && (
+                existingAtr.get().getStatus() == ProgrammeAtrStatus.SUBMITTED_FOR_VERIFICATION ||
+                existingAtr.get().getStatus() == ProgrammeAtrStatus.APPROVED ||
+                existingAtr.get().getStatus() == ProgrammeAtrStatus.REVISION_REQUESTED
+        ));
+
+        boolean canApprove = (req != null && (req.getStatus() == ApprovalStatus.PENDING || req.getStatus() == ApprovalStatus.SUBMITTED || req.getStatus() == ApprovalStatus.PENDING_APPROVAL)) ||
+                (existingAtr.isPresent() && existingAtr.get().getStatus() == ProgrammeAtrStatus.SUBMITTED_FOR_VERIFICATION);
+
         return ProgrammeAtrReportDto.builder()
                 .reportType("PROGRAMME_ATR")
                 .programmeAtrId(patrId)
@@ -1052,7 +1082,33 @@ public class AtrService {
                 .isUnlocked(isUnlocked)
                 .unlockReason(unlockReason)
                 .batchStatus(batchStatusStr)
+                .approvalRequestId(req != null ? req.getId() : null)
+                .isSubmittedForReview(isSubmittedForReview)
+                .canApprove(canApprove)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public ProgrammeAtrReportDto getProgrammeAtrReviewReport(String masterProgrammeId, String programmeBatchId) {
+        ProgrammeAtrReportDto report = getProgrammeAtrReport(masterProgrammeId, programmeBatchId);
+        if (!Boolean.TRUE.equals(report.getIsSubmittedForReview())) {
+            return ProgrammeAtrReportDto.builder()
+                    .reportType("PROGRAMME_ATR")
+                    .programmeAtrId(report.getProgrammeAtrId())
+                    .programme(report.getProgramme())
+                    .batch(report.getBatch())
+                    .poOutcomes(Collections.emptyList())
+                    .psoOutcomes(Collections.emptyList())
+                    .status("DRAFT")
+                    .isUnlocked(false)
+                    .unlockReason("Programme ATR is currently in DRAFT and has not been submitted for approval review.")
+                    .batchStatus(report.getBatchStatus())
+                    .approvalRequestId(null)
+                    .isSubmittedForReview(false)
+                    .canApprove(false)
+                    .build();
+        }
+        return report;
     }
 
     @Transactional

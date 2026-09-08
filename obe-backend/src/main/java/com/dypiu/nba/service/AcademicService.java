@@ -4143,6 +4143,81 @@ public class AcademicService {
         return result;
     }
 
+    @Transactional(readOnly = true)
+    public Map<String, Object> getSemesterReviewCourses(String programmeBatchId, Integer semester) {
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        enforceBatchScope(batch.getId());
+
+        String semKey = "allocation-" + batch.getId() + "-sem-" + semester;
+        ApprovalRequest req = approvalRequestRepository.findAll().stream()
+                .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && semKey.equalsIgnoreCase(a.getResourceId()))
+                .max(LATEST_APPROVAL_COMPARATOR)
+                .orElse(null);
+
+        String allocationStatus = "DRAFT";
+        if (req != null && req.getStatus() != null) {
+            allocationStatus = req.getStatus().name();
+        }
+
+        boolean isSubmittedForReview = req != null && (
+                req.getStatus() == ApprovalStatus.PENDING ||
+                req.getStatus() == ApprovalStatus.SUBMITTED ||
+                req.getStatus() == ApprovalStatus.PENDING_APPROVAL ||
+                req.getStatus() == ApprovalStatus.APPROVED ||
+                req.getStatus() == ApprovalStatus.REVISION_REQUESTED ||
+                req.getStatus() == ApprovalStatus.NEEDS_REVISION
+        );
+
+        List<ProgrammeBatchCourse> courses = isSubmittedForReview
+                ? programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(batch.getId()).stream()
+                    .filter(o -> Objects.equals(o.getSemester(), semester))
+                    .map(this::enrichOffering)
+                    .toList()
+                : Collections.emptyList();
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("programmeBatchId", batch.getId());
+        response.put("programmeBatchName", batch.getName());
+        response.put("semester", semester);
+        response.put("allocationStatus", allocationStatus);
+        response.put("isSubmittedForReview", isSubmittedForReview);
+        response.put("canApprove", req != null && (req.getStatus() == ApprovalStatus.PENDING || req.getStatus() == ApprovalStatus.SUBMITTED || req.getStatus() == ApprovalStatus.PENDING_APPROVAL));
+        response.put("approvalRequestId", req != null ? req.getId() : null);
+        response.put("submittedBy", req != null ? req.getSubmittedBy() : null);
+        response.put("submittedAt", req != null ? req.getSubmittedAt() : null);
+        response.put("reviewedBy", req != null ? req.getApprovedBy() : null);
+        response.put("reviewedAt", req != null ? req.getApprovedAt() : null);
+        response.put("remarks", req != null ? req.getRemarks() : null);
+        response.put("courseCount", courses.size());
+        response.put("courses", courses);
+
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getSubmittedSemesterAllocations(String programmeBatchId) {
+        ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
+                .or(() -> programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(programmeBatchId.trim()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Programme Batch not found: " + programmeBatchId));
+
+        enforceBatchScope(batch.getId());
+
+        int durationYears = batch.getDurationYears() != null ? batch.getDurationYears() : 4;
+        int maxSemesters = durationYears * 2;
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (int sem = 1; sem <= maxSemesters; sem++) {
+            Map<String, Object> semData = getSemesterReviewCourses(batch.getId(), sem);
+            if (Boolean.TRUE.equals(semData.get("isSubmittedForReview"))) {
+                result.add(semData);
+            }
+        }
+        return result;
+    }
+
     private static final java.util.Comparator<ApprovalRequest> LATEST_APPROVAL_COMPARATOR = (a, b) -> {
         ZonedDateTime ta = a.getUpdatedAt() != null ? a.getUpdatedAt() : (a.getApprovedAt() != null ? a.getApprovedAt() : (a.getSubmittedAt() != null ? a.getSubmittedAt() : a.getCreatedAt()));
         ZonedDateTime tb = b.getUpdatedAt() != null ? b.getUpdatedAt() : (b.getApprovedAt() != null ? b.getApprovedAt() : (b.getSubmittedAt() != null ? b.getSubmittedAt() : b.getCreatedAt()));
