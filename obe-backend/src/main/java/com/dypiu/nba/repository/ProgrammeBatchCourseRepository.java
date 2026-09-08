@@ -13,6 +13,7 @@ public interface ProgrammeBatchCourseRepository extends JpaRepository<ProgrammeB
     List<ProgrammeBatchCourse> findByProgrammeBatchId(String programmeBatchId);
     List<ProgrammeBatchCourse> findByProgrammeBatchIdIn(Collection<String> programmeBatchIds);
     Optional<ProgrammeBatchCourse> findByIdAndDeletedAtIsNull(String id);
+    List<ProgrammeBatchCourse> findByDeletedAtIsNull();
     List<ProgrammeBatchCourse> findByProgrammeBatchIdAndDeletedAtIsNull(String programmeBatchId);
     List<ProgrammeBatchCourse> findByProgrammeBatchIdInAndDeletedAtIsNull(Collection<String> programmeBatchIds);
 

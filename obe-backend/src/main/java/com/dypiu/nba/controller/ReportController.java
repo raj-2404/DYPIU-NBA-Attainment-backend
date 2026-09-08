@@ -105,11 +105,11 @@ public class ReportController {
 
         List<ProgrammeBatchCourse> offerings;
         if (programmeBatchId != null && !programmeBatchId.isBlank()) {
-            offerings = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+            offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId);
         } else if (masterCourseId != null && !masterCourseId.isBlank()) {
-            offerings = programmeBatchCourseRepository.findByMasterCourseId(masterCourseId);
+            offerings = programmeBatchCourseRepository.findByMasterCourseIdAndDeletedAtIsNull(masterCourseId);
         } else {
-            offerings = programmeBatchCourseRepository.findAll();
+            offerings = programmeBatchCourseRepository.findByDeletedAtIsNull();
         }
 
         List<CourseAtrReportDto> reports = offerings.stream()

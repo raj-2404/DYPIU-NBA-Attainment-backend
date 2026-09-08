@@ -178,7 +178,7 @@ public class AcademicService {
                 .orElseThrow(() -> new ResourceNotFoundException("ProgrammeBatch not found: " + programmeBatchId));
 
         if (scope.isFaculty()) {
-            List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+            List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId);
             boolean hasAssigned = offerings.stream().anyMatch(o -> {
                 boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()))
                         ;
@@ -285,7 +285,7 @@ public class AcademicService {
         School school = (dept != null && dept.getSchoolId() != null) ? schoolRepository.findById(dept.getSchoolId()).orElse(null) : null;
 
         List<Student> students = studentRepository.findByProgrammeBatchId(programmeBatchId);
-        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+        List<ProgrammeBatchCourse> offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId);
         Set<String> uniqueCourseCodes = offerings.stream().map(ProgrammeBatchCourse::getEffectiveCourseCode).filter(Objects::nonNull).collect(Collectors.toSet());
         List<String> offeringIds = offerings.stream().map(ProgrammeBatchCourse::getId).collect(Collectors.toList());
 
@@ -421,8 +421,8 @@ public class AcademicService {
         List<ProgrammeBatchCourse> offerings;
         if (scope != null && scope.isFaculty()) {
             List<ProgrammeBatchCourse> list = (targetBatchId != null && !targetBatchId.isBlank())
-                    ? programmeBatchCourseRepository.findByProgrammeBatchId(targetBatchId)
-                    : programmeBatchCourseRepository.findAll();
+                    ? programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(targetBatchId)
+                    : programmeBatchCourseRepository.findByDeletedAtIsNull();
             offerings = list.stream()
                     .filter(o -> {
                         boolean isCoord = (o.getCourseCoordinatorId() != null && Objects.equals(o.getCourseCoordinatorId(), scope.getUserId()));
@@ -432,17 +432,17 @@ public class AcademicService {
                     .collect(Collectors.toList());
         } else if (targetBatchId != null && !targetBatchId.isBlank()) {
             enforceBatchScope(targetBatchId);
-            offerings = programmeBatchCourseRepository.findByProgrammeBatchId(targetBatchId);
+            offerings = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(targetBatchId);
         } else if (scope != null && scope.isProgrammeCoordinator()) {
             List<ProgrammeBatch> batches = getAllBatches();
             Set<String> bIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
-            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(bIds);
+            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(bIds);
         } else if (scope != null && scope.isHod()) {
             List<MasterProgramme> progs = getAllProgrammes();
             List<String> pIds = progs.stream().map(MasterProgramme::getId).toList();
             List<ProgrammeBatch> batches = pIds.isEmpty() ? Collections.emptyList() : programmeBatchRepository.findByMasterProgrammeIdIn(pIds);
             Set<String> bIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
-            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(bIds);
+            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(bIds);
         } else if (scope != null && scope.isDirector()) {
             List<Department> depts = departmentRepository.findBySchoolId(scope.getRequiredSchoolId());
             List<String> dIds = depts.stream().map(Department::getId).toList();
@@ -450,11 +450,11 @@ public class AcademicService {
             List<String> pIds = progs.stream().map(MasterProgramme::getId).toList();
             List<ProgrammeBatch> batches = pIds.isEmpty() ? Collections.emptyList() : programmeBatchRepository.findByMasterProgrammeIdIn(pIds);
             Set<String> bIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
-            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(bIds);
+            offerings = bIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(bIds);
         } else if (scope != null && scope.isIqac()) {
-            offerings = programmeBatchCourseRepository.findAll();
+            offerings = programmeBatchCourseRepository.findByDeletedAtIsNull();
         } else {
-            offerings = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId) : programmeBatchCourseRepository.findAll();
+            offerings = (programmeBatchId != null && !programmeBatchId.isBlank()) ? programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId) : programmeBatchCourseRepository.findByDeletedAtIsNull();
         }
         offerings.forEach(this::enrichOffering);
         return offerings;
@@ -464,7 +464,7 @@ public class AcademicService {
     public ProgrammeBatchCourse getProgrammeBatchCourseById(String offeringId) {
         System.out.println("[AcademicService] getProgrammeBatchCourseById called | offeringId: " + offeringId);
         if (offeringId == null || offeringId.isBlank()) return null;
-        ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(offeringId)
+        ProgrammeBatchCourse offering = programmeBatchCourseRepository.findByIdAndDeletedAtIsNull(offeringId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course offering not found: " + offeringId));
         enforceProgrammeBatchCourseScope(offering.getId());
         return enrichOffering(offering);
@@ -2506,8 +2506,8 @@ public class AcademicService {
         List<ProgrammeBatchCourse> list;
         try {
             list = (programmeBatchId != null && !programmeBatchId.isBlank())
-                    ? programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId.trim())
-                    : programmeBatchCourseRepository.findAll();
+                    ? programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId.trim())
+                    : programmeBatchCourseRepository.findByDeletedAtIsNull();
         } catch (Exception e) {
             System.err.println("[AcademicService] Error querying programme batch courses for batch " + programmeBatchId + ": " + e.getMessage());
             return Collections.emptyList();

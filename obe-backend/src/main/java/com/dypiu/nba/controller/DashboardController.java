@@ -178,7 +178,7 @@ public class DashboardController {
                 .filter(b -> "ACTIVE".equalsIgnoreCase(b.getStatus()))
                 .collect(Collectors.toList());
         Set<String> programmeBatchIds = activeBatches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
-        List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(programmeBatchIds);
+        List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(programmeBatchIds);
         List<ProgrammeBatchCourse> courses = offerings;
 
         long allocationsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
@@ -343,7 +343,7 @@ public class DashboardController {
 
         List<ProgrammeBatch> batches = programmeBatchRepository.findByMasterProgrammeId(finalProgId);
         Set<String> programmeBatchIds = batches.stream().map(ProgrammeBatch::getId).collect(Collectors.toSet());
-        List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdIn(programmeBatchIds);
+        List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(programmeBatchIds);
         List<ProgrammeBatchCourse> courses = offerings;
 
         List<String> offeringIds = offerings.stream().map(ProgrammeBatchCourse::getId).collect(Collectors.toList());

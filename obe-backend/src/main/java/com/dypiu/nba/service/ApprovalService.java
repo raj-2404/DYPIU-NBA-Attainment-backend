@@ -784,7 +784,7 @@ public class ApprovalService {
 
         enforceProgrammeBatchScope(batch);
 
-        List<ProgrammeBatchCourse> batchCourses = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+        List<ProgrammeBatchCourse> batchCourses = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId);
         List<CourseApprovalCardDto> courseCards = new ArrayList<>();
         int totalPendingItems = 0;
 
@@ -855,7 +855,7 @@ public class ApprovalService {
 
         enforceProgrammeBatchScope(batch);
 
-        List<ProgrammeBatchCourse> batchCourses = programmeBatchCourseRepository.findByProgrammeBatchId(programmeBatchId);
+        List<ProgrammeBatchCourse> batchCourses = programmeBatchCourseRepository.findByProgrammeBatchIdAndDeletedAtIsNull(programmeBatchId);
         List<CourseApprovalCardDto> courseCards = new ArrayList<>();
         int totalReviewedItems = 0;
 
