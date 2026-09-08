@@ -25,9 +25,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/users")
@@ -174,6 +173,13 @@ public class UserController {
                 .isActive(true)
                 .build();
 
+        if (body.containsKey("roles")) {
+            List<String> assignedRolesList = parseRoles(body.get("roles"));
+            if (assignedRolesList != null && !assignedRolesList.isEmpty()) {
+                user.setRoleList(assignedRolesList);
+            }
+        }
+
         User saved = userRepository.save(user);
         if (auditLogService != null) {
             auditLogService.recordSuccess(com.dypiu.nba.audit.AuditAction.CREATE, com.dypiu.nba.audit.ResourceType.USER, String.valueOf(saved.getId()), null, "ACTIVE", "Created User " + saved.getName(), java.util.Map.of("username", saved.getUsername(), "role", saved.getRole() != null ? saved.getRole().name() : ""));
@@ -233,6 +239,11 @@ public class UserController {
             } catch (Exception ignored) {}
         }
 
+        if (body.containsKey("roles")) {
+            List<String> assignedRolesList = parseRoles(body.get("roles"));
+            user.setRoleList(assignedRolesList);
+        }
+
         // Validate and resolve organizational scope
         ResolvedScope scope = validateAndResolveScope(body, user.getRole());
 
@@ -285,6 +296,31 @@ public class UserController {
                 .build());
     }
 
+    @RequestMapping(value = "/{id}/roles", method = {RequestMethod.PUT, RequestMethod.POST})
+    public ResponseEntity<ApiResponse<UserDto>> updateUserRoles(@PathVariable Long id, @RequestBody Object body) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + id));
+
+        enforceUserScope(user);
+
+        List<String> assignedRolesList = parseRoles(body);
+        if (assignedRolesList != null) {
+            user.setRoleList(assignedRolesList);
+            if (!assignedRolesList.isEmpty()) {
+                try {
+                    user.setRole(UserRole.valueOf(assignedRolesList.get(0).toUpperCase()));
+                } catch (Exception ignored) {}
+            }
+        }
+
+        User saved = userRepository.save(user);
+        return ResponseEntity.ok(ApiResponse.<UserDto>builder()
+                .success(true)
+                .message("User roles updated successfully.")
+                .data(toDto(saved))
+                .build());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserDto>> getUserById(@PathVariable Long id) {
         User user = userRepository.findById(id)
@@ -315,6 +351,32 @@ public class UserController {
                 .success(true)
                 .message("User deleted successfully.")
                 .build());
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> parseRoles(Object rolesObj) {
+        if (rolesObj == null) return null;
+        if (rolesObj instanceof List<?> list) {
+            return list.stream().filter(Objects::nonNull).map(Object::toString).collect(Collectors.toList());
+        }
+        if (rolesObj instanceof Map<?, ?> map) {
+            if (map.containsKey("roles")) {
+                return parseRoles(map.get("roles"));
+            }
+        }
+        if (rolesObj instanceof String str && !str.isBlank()) {
+            if (str.trim().startsWith("[")) {
+                try {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    return mapper.readValue(str, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+                } catch (Exception ignored) {}
+            }
+            return Arrays.stream(str.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .collect(Collectors.toList());
+        }
+        return Collections.emptyList();
     }
 
     private record ResolvedScope(String schoolId, String departmentId, String masterProgrammeId) {}

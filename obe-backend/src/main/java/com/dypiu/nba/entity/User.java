@@ -52,6 +52,9 @@ public class User {
     @Column(name = "master_programme_id")
     private String masterProgrammeId;
 
+    @Column(name = "assigned_roles", columnDefinition = "TEXT")
+    private String assignedRoles;
+
     @Builder.Default
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
@@ -67,4 +70,43 @@ public class User {
 
     @Transient
     private String programme;
+
+    public java.util.List<String> getExplicitAssignedRoles() {
+        if (assignedRoles != null && !assignedRoles.isBlank()) {
+            try {
+                String trimmed = assignedRoles.trim();
+                if (trimmed.startsWith("[")) {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    return mapper.readValue(trimmed, new com.fasterxml.jackson.core.type.TypeReference<java.util.List<String>>() {});
+                } else {
+                    return java.util.Arrays.stream(trimmed.split(","))
+                            .map(String::trim)
+                            .filter(s -> !s.isEmpty())
+                            .collect(java.util.stream.Collectors.toList());
+                }
+            } catch (Exception ignored) {}
+        }
+        return java.util.Collections.emptyList();
+    }
+
+    public java.util.List<String> getRoleList() {
+        java.util.List<String> explicit = getExplicitAssignedRoles();
+        if (!explicit.isEmpty()) {
+            return explicit;
+        }
+        return role != null ? java.util.List.of(role.name()) : java.util.Collections.emptyList();
+    }
+
+    public void setRoleList(java.util.List<String> roles) {
+        if (roles == null || roles.isEmpty()) {
+            this.assignedRoles = null;
+        } else {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                this.assignedRoles = mapper.writeValueAsString(roles);
+            } catch (Exception e) {
+                this.assignedRoles = String.join(",", roles);
+            }
+        }
+    }
 }

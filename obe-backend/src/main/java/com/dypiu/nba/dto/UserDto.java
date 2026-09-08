@@ -18,4 +18,5 @@ public class UserDto {
     private String masterProgrammeId;
     private String department;
     private String programme;
+    private java.util.List<String> roles;
 }

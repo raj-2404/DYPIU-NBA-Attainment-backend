@@ -186,4 +186,30 @@ public class MultiRoleProfileSwitchingIntegrationTest {
         String activeRole = jwtTokenProvider.getActiveRoleFromJwt(authResponse.getToken());
         assertEquals("HOD", activeRole);
     }
+
+    @Test
+    @DisplayName("Explicit role restriction by IQAC restricts profiles strictly to assigned roles")
+    void testExplicitAssignedRolesRestrictsProfiles() {
+        // Explicitly set only HOD on user
+        testUser.setRoleList(java.util.List.of("HOD"));
+        userRepository.save(testUser);
+
+        Principal principal = () -> testUser.getUsername();
+        UserRolesResponseDto response = authService.getAvailableRoles(principal);
+
+        assertNotNull(response);
+        assertEquals(1, response.getProfiles().size(), "Only HOD role should be available when IQAC explicitly assigns ['HOD']");
+        assertEquals("HOD", response.getProfiles().get(0).getRole());
+
+        // Now IQAC assigns both HOD and COURSE_COORDINATOR
+        testUser.setRoleList(java.util.List.of("HOD", "COURSE_COORDINATOR"));
+        userRepository.save(testUser);
+
+        response = authService.getAvailableRoles(principal);
+        assertNotNull(response);
+        assertEquals(2, response.getProfiles().size(), "Both HOD and COURSE_COORDINATOR should be available");
+        assertTrue(response.getProfiles().stream().anyMatch(p -> "HOD".equals(p.getRole())));
+        assertTrue(response.getProfiles().stream().anyMatch(p -> "COURSE_COORDINATOR".equals(p.getRole())));
+        assertFalse(response.getProfiles().stream().anyMatch(p -> "PROGRAMME_COORDINATOR".equals(p.getRole())), "PC should not be included");
+    }
 }

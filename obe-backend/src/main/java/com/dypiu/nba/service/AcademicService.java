@@ -1434,29 +1434,22 @@ public class AcademicService {
             users = userRepository.findAll();
         } else {
             String searchRole = role.trim().toUpperCase().replace("-", "_");
-            if (searchRole.equals("PROGRAMME_COORDINATOR")
-                    || searchRole.equals("COORDINATOR")
-                    || searchRole.equals("PC")
-                    || searchRole.equals("PROGRAMME_COORD")) {
-                users = userRepository.findByRole(UserRole.PROGRAMME_COORDINATOR);
-            } else if (searchRole.equals("COURSE_COORDINATOR")
-                    || searchRole.equals("CC")
-                    || searchRole.equals("FACULTY")) {
-                users = userRepository.findByRole(UserRole.FACULTY);
-            } else if (searchRole.equals("HOD")) {
-                users = userRepository.findByRole(UserRole.HOD);
-            } else if (searchRole.equals("DIRECTOR")) {
-                users = userRepository.findByRole(UserRole.DIRECTOR);
-            } else if (searchRole.equals("IQAC")) {
-                users = userRepository.findByRole(UserRole.IQAC);
-            } else {
-                try {
-                    UserRole userRole = UserRole.valueOf(searchRole);
-                    users = userRepository.findByRole(userRole);
-                } catch (IllegalArgumentException e) {
-                    users = userRepository.findAll();
+            users = userRepository.findAll().stream().filter(u -> {
+                if (u.getRole() != null && (
+                        u.getRole().name().equalsIgnoreCase(searchRole)
+                        || (u.getRole() == UserRole.FACULTY && (searchRole.equals("COURSE_COORDINATOR") || searchRole.equals("CC") || searchRole.equals("FACULTY")))
+                        || (u.getRole() == UserRole.PROGRAMME_COORDINATOR && (searchRole.equals("COORDINATOR") || searchRole.equals("PC") || searchRole.equals("PROGRAMME_COORDINATOR")))
+                )) {
+                    return true;
                 }
-            }
+                return u.getRoleList().stream().anyMatch(r -> {
+                    String clean = r.trim().toUpperCase().replace("-", "_");
+                    return clean.equalsIgnoreCase(searchRole)
+                            || (clean.equals("FACULTY") && (searchRole.equals("COURSE_COORDINATOR") || searchRole.equals("CC")))
+                            || (clean.equals("COURSE_COORDINATOR") && searchRole.equals("FACULTY"))
+                            || (clean.equals("PROGRAMME_COORDINATOR") && (searchRole.equals("COORDINATOR") || searchRole.equals("PC")));
+                });
+            }).collect(Collectors.toList());
         }
 
         if (departmentId != null && !departmentId.isBlank()) {
@@ -1509,6 +1502,7 @@ public class AcademicService {
                             .role(u.getRole() != null
                                     ? u.getRole().name()
                                     : UserRole.FACULTY.name())
+                            .roles(u.getRoleList())
                             .schoolId(u.getSchoolId())
                             .departmentId(u.getDepartmentId())
                             .masterProgrammeId(u.getMasterProgrammeId())
