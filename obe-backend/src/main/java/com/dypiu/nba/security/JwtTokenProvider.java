@@ -37,16 +37,33 @@ public class JwtTokenProvider {
     }
 
     public String generateTokenForUser(String username) {
+        return generateTokenForUser(username, null, null, null, null);
+    }
+
+    public String generateTokenForUser(String username, String activeRole, String schoolId, String departmentId, String masterProgrammeId) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject(username)
                 .claim("type", "access")
                 .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSigningKey())
-                .compact();
+                .expiration(expiryDate);
+
+        if (activeRole != null && !activeRole.isBlank()) {
+            builder.claim("activeRole", activeRole);
+        }
+        if (schoolId != null && !schoolId.isBlank()) {
+            builder.claim("schoolId", schoolId);
+        }
+        if (departmentId != null && !departmentId.isBlank()) {
+            builder.claim("departmentId", departmentId);
+        }
+        if (masterProgrammeId != null && !masterProgrammeId.isBlank()) {
+            builder.claim("masterProgrammeId", masterProgrammeId);
+        }
+
+        return builder.signWith(getSigningKey()).compact();
     }
 
     public String generateRefreshToken(String username) {
@@ -62,14 +79,53 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public String getUsernameFromJwt(String token) {
-        Claims claims = Jwts.parser()
+    public Claims getClaimsFromJwt(String token) {
+        return Jwts.parser()
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();
+    }
 
+    public String getUsernameFromJwt(String token) {
+        Claims claims = getClaimsFromJwt(token);
         return claims.getSubject();
+    }
+
+    public String getActiveRoleFromJwt(String token) {
+        try {
+            Claims claims = getClaimsFromJwt(token);
+            return claims.get("activeRole", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String getSchoolIdFromJwt(String token) {
+        try {
+            Claims claims = getClaimsFromJwt(token);
+            return claims.get("schoolId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String getDepartmentIdFromJwt(String token) {
+        try {
+            Claims claims = getClaimsFromJwt(token);
+            return claims.get("departmentId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public String getMasterProgrammeIdFromJwt(String token) {
+        try {
+            Claims claims = getClaimsFromJwt(token);
+            return claims.get("masterProgrammeId", String.class);
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public boolean validateToken(String authToken) {

@@ -31,10 +31,40 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromJwt(jwt);
+                String activeRole = tokenProvider.getActiveRoleFromJwt(jwt);
+                String schoolId = tokenProvider.getSchoolIdFromJwt(jwt);
+                String departmentId = tokenProvider.getDepartmentIdFromJwt(jwt);
+                String masterProgrammeId = tokenProvider.getMasterProgrammeIdFromJwt(jwt);
+
+                // Check optional header override
+                String headerRole = request.getHeader("X-Active-Role");
+                if (StringUtils.hasText(headerRole)) {
+                    activeRole = headerRole.trim();
+                }
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+
+                java.util.Collection<? extends org.springframework.security.core.GrantedAuthority> authorities;
+                if (StringUtils.hasText(activeRole)) {
+                    String cleanRole = activeRole.toUpperCase().startsWith("ROLE_") ? activeRole.toUpperCase() : "ROLE_" + activeRole.toUpperCase();
+                    authorities = java.util.Collections.singletonList(new org.springframework.security.core.authority.SimpleGrantedAuthority(cleanRole));
+                    request.setAttribute("ACTIVE_ROLE_OVERRIDE", activeRole.toUpperCase());
+                } else {
+                    authorities = userDetails.getAuthorities();
+                }
+
+                if (StringUtils.hasText(schoolId)) {
+                    request.setAttribute("ACTIVE_SCHOOL_OVERRIDE", schoolId.trim());
+                }
+                if (StringUtils.hasText(departmentId)) {
+                    request.setAttribute("ACTIVE_DEPT_OVERRIDE", departmentId.trim());
+                }
+                if (StringUtils.hasText(masterProgrammeId)) {
+                    request.setAttribute("ACTIVE_PROG_OVERRIDE", masterProgrammeId.trim());
+                }
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, userDetails.getAuthorities()
+                        userDetails, null, authorities
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 

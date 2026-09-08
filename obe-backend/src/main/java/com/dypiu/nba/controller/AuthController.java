@@ -85,4 +85,24 @@ public class AuthController {
                 .data(Map.of("loggedOut", true))
                 .build());
     }
+
+    @GetMapping({"/roles", "/profiles"})
+    public ResponseEntity<ApiResponse<UserRolesResponseDto>> getAvailableRoles(java.security.Principal principal) {
+        UserRolesResponseDto response = authService.getAvailableRoles(principal);
+        return ResponseEntity.ok(ApiResponse.<UserRolesResponseDto>builder()
+                .success(true)
+                .message("User roles and profiles retrieved successfully")
+                .data(response)
+                .build());
+    }
+
+    @PostMapping("/switch-role")
+    public ResponseEntity<ApiResponse<AuthResponse>> switchRole(@Valid @RequestBody SwitchRoleRequestDto request, java.security.Principal principal) {
+        AuthResponse response = authService.switchRole(request, principal);
+        return ResponseEntity.ok(ApiResponse.<AuthResponse>builder()
+                .success(true)
+                .message("Active profile switched to " + request.getRole() + " successfully")
+                .data(response)
+                .build());
+    }
 }

@@ -17,6 +17,7 @@ import com.dypiu.nba.security.CurrentUserScope;
 import com.dypiu.nba.security.CurrentUserScopeService;
 import com.dypiu.nba.service.AcademicService;
 import com.dypiu.nba.service.AuditLogService;
+import com.dypiu.nba.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -41,6 +42,7 @@ public class UserController {
     private final MasterProgrammeRepository masterProgrammeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final AuthService authService;
 
     private CurrentUserScope getScope() {
         try {
@@ -78,6 +80,24 @@ public class UserController {
                 throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: User belongs to a different school.");
             }
         }
+    }
+
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserDto>> getMe(java.security.Principal principal) {
+        User user = currentUserScopeService.getCurrentUser();
+        return ResponseEntity.ok(ApiResponse.<UserDto>builder()
+                .success(true)
+                .data(toDto(user))
+                .build());
+    }
+
+    @GetMapping("/me/roles")
+    public ResponseEntity<ApiResponse<com.dypiu.nba.dto.UserRolesResponseDto>> getMyRoles(java.security.Principal principal) {
+        return ResponseEntity.ok(ApiResponse.<com.dypiu.nba.dto.UserRolesResponseDto>builder()
+                .success(true)
+                .message("User roles and profiles retrieved successfully")
+                .data(authService.getAvailableRoles(principal))
+                .build());
     }
 
     @GetMapping

@@ -126,16 +126,67 @@ public class CurrentUserScopeService {
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User entity is null");
         }
+
+        com.dypiu.nba.entity.UserRole effectiveRole = user.getRole();
+        String effectiveSchoolId = user.getSchoolId();
+        String effectiveDepartmentId = user.getDepartmentId();
+        String effectiveMasterProgrammeId = user.getMasterProgrammeId();
+
+        RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+        if (attrs != null) {
+            String activeRoleStr = (String) attrs.getAttribute("ACTIVE_ROLE_OVERRIDE", RequestAttributes.SCOPE_REQUEST);
+            if (activeRoleStr != null && !activeRoleStr.isBlank()) {
+                effectiveRole = mapStringToUserRole(activeRoleStr, user.getRole());
+            }
+            String activeSchool = (String) attrs.getAttribute("ACTIVE_SCHOOL_OVERRIDE", RequestAttributes.SCOPE_REQUEST);
+            if (activeSchool != null && !activeSchool.isBlank()) {
+                effectiveSchoolId = activeSchool;
+            }
+            String activeDept = (String) attrs.getAttribute("ACTIVE_DEPT_OVERRIDE", RequestAttributes.SCOPE_REQUEST);
+            if (activeDept != null && !activeDept.isBlank()) {
+                effectiveDepartmentId = activeDept;
+            }
+            String activeProg = (String) attrs.getAttribute("ACTIVE_PROG_OVERRIDE", RequestAttributes.SCOPE_REQUEST);
+            if (activeProg != null && !activeProg.isBlank()) {
+                effectiveMasterProgrammeId = activeProg;
+            }
+        }
+
         return CurrentUserScope.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .name(user.getName())
-                .role(user.getRole())
-                .schoolId(user.getSchoolId())
-                .departmentId(user.getDepartmentId())
-                .masterProgrammeId(user.getMasterProgrammeId())
+                .role(effectiveRole)
+                .schoolId(effectiveSchoolId)
+                .departmentId(effectiveDepartmentId)
+                .masterProgrammeId(effectiveMasterProgrammeId)
                 .build();
+    }
+
+    private com.dypiu.nba.entity.UserRole mapStringToUserRole(String roleStr, com.dypiu.nba.entity.UserRole fallback) {
+        if (roleStr == null || roleStr.isBlank()) return fallback;
+        String clean = roleStr.toUpperCase().replace("ROLE_", "").trim();
+        if (clean.equals("COURSE_COORDINATOR") || clean.equals("CC") || clean.equals("FACULTY") || clean.equals("TEACHER")) {
+            return com.dypiu.nba.entity.UserRole.FACULTY;
+        }
+        if (clean.equals("PROGRAMME_COORDINATOR") || clean.equals("PC") || clean.equals("COORDINATOR")) {
+            return com.dypiu.nba.entity.UserRole.PROGRAMME_COORDINATOR;
+        }
+        if (clean.equals("HOD") || clean.equals("HEAD_OF_DEPARTMENT")) {
+            return com.dypiu.nba.entity.UserRole.HOD;
+        }
+        if (clean.equals("DIRECTOR") || clean.equals("DEAN")) {
+            return com.dypiu.nba.entity.UserRole.DIRECTOR;
+        }
+        if (clean.equals("IQAC") || clean.equals("ADMIN")) {
+            return com.dypiu.nba.entity.UserRole.IQAC;
+        }
+        try {
+            return com.dypiu.nba.entity.UserRole.valueOf(clean);
+        } catch (Exception e) {
+            return fallback;
+        }
     }
 
     private CurrentUserScope resolveScopeFromAuthentication(Authentication authentication) {
