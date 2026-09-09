@@ -45,4 +45,11 @@ public interface MasterProgrammeRepository extends JpaRepository<MasterProgramme
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(mp) > 0 FROM MasterProgramme mp JOIN Department d ON mp.departmentId = d.id WHERE d.schoolId = :schoolId AND LOWER(TRIM(mp.name)) = LOWER(TRIM(:name)) AND mp.deletedAt IS NULL AND mp.id != :excludeId")
     boolean existsByNameInSchoolExcludeId(@org.springframework.data.repository.query.Param("schoolId") String schoolId, @org.springframework.data.repository.query.Param("name") String name, @org.springframework.data.repository.query.Param("excludeId") String excludeId);
+
+    // Native queries to query trash if needed by developers (bypassing @SQLRestriction)
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM master_programmes WHERE deleted_at IS NOT NULL", nativeQuery = true)
+    List<MasterProgramme> findAllTrashProgrammes();
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM master_programmes WHERE id = :id AND deleted_at IS NOT NULL", nativeQuery = true)
+    Optional<MasterProgramme> findTrashProgrammeById(@org.springframework.data.repository.query.Param("id") String id);
 }

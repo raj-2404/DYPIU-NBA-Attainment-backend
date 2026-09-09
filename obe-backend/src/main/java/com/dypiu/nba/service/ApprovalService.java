@@ -692,11 +692,12 @@ public class ApprovalService {
     }
 
     public String normalizeCanonicalApprovalStatus(ApprovalStatus status) {
-        if (status == null) return "PENDING";
+        if (status == null) return "DRAFT";
         return switch (status) {
             case APPROVED, VERIFIED -> "APPROVED";
             case REVISION_REQUESTED, NEEDS_REVISION, REJECTED -> "REVISION_REQUESTED";
-            default -> "PENDING";
+            case DRAFT -> "DRAFT";
+            case PENDING, SUBMITTED, PENDING_APPROVAL -> "PENDING";
         };
     }
 

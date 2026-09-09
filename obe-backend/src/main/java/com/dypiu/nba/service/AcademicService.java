@@ -556,10 +556,10 @@ public class AcademicService {
             }
         }
 
-        Optional<ProgrammeBatchCourse> softDeletedOfferingOpt = programmeBatchCourseRepository.findFirstByProgrammeBatchIdAndCodeIgnoreCaseAndDeletedAtIsNull(programmeBatchId, finalCode);
+        Optional<ProgrammeBatchCourse> softDeletedOfferingOpt = programmeBatchCourseRepository.findTrashCourseByProgrammeBatchIdAndCodeIgnoreCase(programmeBatchId, finalCode);
         ProgrammeBatchCourse offering;
         boolean isNew = true;
-        if (softDeletedOfferingOpt.isPresent() && softDeletedOfferingOpt.get().getDeletedAt() != null) {
+        if (softDeletedOfferingOpt.isPresent()) {
             offering = softDeletedOfferingOpt.get();
             offering.setDeletedAt(null);
             offering.setDeletedBy(null);
@@ -2137,7 +2137,8 @@ public class AcademicService {
 
         MasterProgramme targetProg = programme;
         if (programme.getId() != null) {
-            Optional<MasterProgramme> existingOpt = masterProgrammeRepository.findById(programme.getId());
+            Optional<MasterProgramme> existingOpt = masterProgrammeRepository.findById(programme.getId())
+                    .or(() -> masterProgrammeRepository.findTrashProgrammeById(programme.getId()));
             if (existingOpt.isPresent()) {
                 MasterProgramme existing = existingOpt.get();
                 existing.setDeletedAt(null);
@@ -2659,14 +2660,15 @@ public class AcademicService {
         boolean isNewBatch = true;
 
         if (batch.getId() != null && !batch.getId().isBlank()) {
-            Optional<ProgrammeBatch> byIdOpt = programmeBatchRepository.findById(batch.getId());
+            Optional<ProgrammeBatch> byIdOpt = programmeBatchRepository.findById(batch.getId())
+                    .or(() -> programmeBatchRepository.findTrashBatchById(batch.getId()));
             if (byIdOpt.isPresent()) {
                 targetBatch = byIdOpt.get();
                 isNewBatch = false;
             }
         } else if (batch.getMasterProgrammeId() != null && batch.getStartYear() != null) {
-            Optional<ProgrammeBatch> softDeletedOpt = programmeBatchRepository.findFirstByMasterProgrammeIdAndStartYear(batch.getMasterProgrammeId(), batch.getStartYear());
-            if (softDeletedOpt.isPresent() && softDeletedOpt.get().getDeletedAt() != null) {
+            Optional<ProgrammeBatch> softDeletedOpt = programmeBatchRepository.findTrashBatchByMasterProgrammeIdAndStartYear(batch.getMasterProgrammeId(), batch.getStartYear());
+            if (softDeletedOpt.isPresent()) {
                 targetBatch = softDeletedOpt.get();
                 isNewBatch = false;
             }

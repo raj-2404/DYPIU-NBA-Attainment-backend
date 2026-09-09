@@ -7,6 +7,8 @@ import java.time.ZonedDateTime;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
 @Table(
         name = "programme_batches",
@@ -17,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
                 )
         }
 )
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor

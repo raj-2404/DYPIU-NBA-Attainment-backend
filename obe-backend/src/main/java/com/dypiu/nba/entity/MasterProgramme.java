@@ -9,10 +9,13 @@ import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.hibernate.annotations.SQLRestriction;
+
 @Entity
 @Table(
         name = "master_programmes"
 )
+@SQLRestriction("deleted_at IS NULL")
 @Getter
 @Setter
 @NoArgsConstructor

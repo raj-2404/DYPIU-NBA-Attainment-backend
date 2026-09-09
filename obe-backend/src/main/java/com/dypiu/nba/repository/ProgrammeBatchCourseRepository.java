@@ -77,4 +77,14 @@ public interface ProgrammeBatchCourseRepository extends JpaRepository<ProgrammeB
 
     List<ProgrammeBatchCourse> findByCode(String code);
     List<ProgrammeBatchCourse> findByCodeIgnoreCase(String code);
+
+    // Native queries to query trash if needed by developers (bypassing @SQLRestriction)
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM programme_batch_courses WHERE deleted_at IS NOT NULL", nativeQuery = true)
+    List<ProgrammeBatchCourse> findAllTrashCourses();
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM programme_batch_courses WHERE id = :id AND deleted_at IS NOT NULL", nativeQuery = true)
+    Optional<ProgrammeBatchCourse> findTrashCourseById(@org.springframework.data.repository.query.Param("id") String id);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM programme_batch_courses WHERE programme_batch_id = :programmeBatchId AND LOWER(code) = LOWER(:code) AND deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
+    Optional<ProgrammeBatchCourse> findTrashCourseByProgrammeBatchIdAndCodeIgnoreCase(@org.springframework.data.repository.query.Param("programmeBatchId") String programmeBatchId, @org.springframework.data.repository.query.Param("code") String code);
 }

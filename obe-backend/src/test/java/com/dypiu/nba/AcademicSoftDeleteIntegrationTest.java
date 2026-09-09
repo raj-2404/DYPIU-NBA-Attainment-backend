@@ -71,10 +71,14 @@ public class AcademicSoftDeleteIntegrationTest {
         // 2. Delete it (should soft-delete)
         academicService.deleteProgramme(oldId);
 
-        // Verify it is soft-deleted
+        // Verify it is excluded from standard active queries (findById returns empty)
         Optional<MasterProgramme> deletedP1 = masterProgrammeRepository.findById(oldId);
-        assertThat(deletedP1).isPresent();
-        assertThat(deletedP1.get().getDeletedAt()).isNotNull();
+        assertThat(deletedP1).isEmpty();
+
+        // Verify it is present in Trash / Database with deletedAt populated
+        Optional<MasterProgramme> trashP1 = masterProgrammeRepository.findTrashProgrammeById(oldId);
+        assertThat(trashP1).isPresent();
+        assertThat(trashP1.get().getDeletedAt()).isNotNull();
 
         // Verify it is excluded from active listings
         List<MasterProgramme> activeProgs = masterProgrammeRepository.findByDeletedAtIsNull();
@@ -92,13 +96,13 @@ public class AcademicSoftDeleteIntegrationTest {
         // Verify NEW ID is created
         assertThat(newId).isNotNull().isNotEqualTo(oldId);
 
-        // Verify both exist in the database with the SAME code
+        // Verify active programme has the code
         Optional<MasterProgramme> fromDbNew = masterProgrammeRepository.findById(newId);
         assertThat(fromDbNew).isPresent();
         assertThat(fromDbNew.get().getCode()).isEqualTo("B.TECH-TEST");
         assertThat(fromDbNew.get().getDeletedAt()).isNull();
 
-        Optional<MasterProgramme> fromDbOld = masterProgrammeRepository.findById(oldId);
+        Optional<MasterProgramme> fromDbOld = masterProgrammeRepository.findTrashProgrammeById(oldId);
         assertThat(fromDbOld).isPresent();
         assertThat(fromDbOld.get().getCode()).isEqualTo("B.TECH-TEST");
         assertThat(fromDbOld.get().getDeletedAt()).isNotNull();
@@ -109,7 +113,8 @@ public class AcademicSoftDeleteIntegrationTest {
 
     @Autowired
     private ProgrammeBatchCourseRepository programmeBatchCourseRepository;
-@Test
+
+    @Test
     void testSoftDeleteAndRecreateProgrammeBatch() {
         // 1. Create a MasterProgramme
         MasterProgramme prog = MasterProgramme.builder()
@@ -133,7 +138,9 @@ public class AcademicSoftDeleteIntegrationTest {
 
         // 3. Delete the Batch (soft delete)
         academicService.deleteBatch(savedBatch1.getId());
-        Optional<ProgrammeBatch> softDeletedOpt = programmeBatchRepository.findById("batch-test-2022");
+        Optional<ProgrammeBatch> activeOpt = programmeBatchRepository.findById("batch-test-2022");
+        assertThat(activeOpt).isEmpty();
+        Optional<ProgrammeBatch> softDeletedOpt = programmeBatchRepository.findTrashBatchById("batch-test-2022");
         assertThat(softDeletedOpt).isPresent();
         assertThat(softDeletedOpt.get().getDeletedAt()).isNotNull();
 
@@ -187,9 +194,6 @@ public class AcademicSoftDeleteIntegrationTest {
                 .build();
         ProgrammeBatch savedBatch = academicService.saveBatch(batch);
 
-        
-        
-
         // 2. Create Course Offering
         com.dypiu.nba.dto.CourseOfferingRequestDto req = com.dypiu.nba.dto.CourseOfferingRequestDto.builder()
                 .programmeBatchId(savedBatch.getId())
@@ -201,7 +205,9 @@ public class AcademicSoftDeleteIntegrationTest {
 
         // 3. Delete Course Offering (soft delete)
         academicService.deleteProgrammeBatchCourse(offering.getId());
-        Optional<ProgrammeBatchCourse> deletedOpt = programmeBatchCourseRepository.findById(offering.getId());
+        Optional<ProgrammeBatchCourse> activeOpt = programmeBatchCourseRepository.findById(offering.getId());
+        assertThat(activeOpt).isEmpty();
+        Optional<ProgrammeBatchCourse> deletedOpt = programmeBatchCourseRepository.findTrashCourseById(offering.getId());
         assertThat(deletedOpt).isPresent();
         assertThat(deletedOpt.get().getDeletedAt()).isNotNull();
 

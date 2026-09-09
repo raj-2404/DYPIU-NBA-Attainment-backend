@@ -82,13 +82,22 @@ public class DeletionWorkflowIntegrationTest {
     private ProgrammeBatchCourse course;
     private ProgrammeBatchCourse batchCourse;
 
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
     @BeforeEach
     void setUp() {
         deletionRequestRepository.deleteAll();
         auditLogRepository.deleteAll();
-        programmeBatchCourseRepository.deleteAll();
-        programmeBatchRepository.deleteAll();
-        masterProgrammeRepository.deleteAll();
+        if (jdbcTemplate != null) {
+            jdbcTemplate.execute("DELETE FROM programme_batch_courses");
+            jdbcTemplate.execute("DELETE FROM programme_batches");
+            jdbcTemplate.execute("DELETE FROM master_programmes");
+        } else {
+            programmeBatchCourseRepository.deleteAll();
+            programmeBatchRepository.deleteAll();
+            masterProgrammeRepository.deleteAll();
+        }
         departmentRepository.deleteAll();
         schoolRepository.deleteAll();
         userRepository.deleteAll();
@@ -330,7 +339,10 @@ public class DeletionWorkflowIntegrationTest {
         assertNotNull(updatedReq.getExecutedAt());
 
         // Verify underlying resource is SOFT DELETED (Record remains in DB, deletedAt and deletedBy populated)
-        ProgrammeBatchCourse checkedOffering = programmeBatchCourseRepository.findById(batchCourse.getId()).orElseThrow();
+        // 1. Inactive in standard queries
+        assertTrue(programmeBatchCourseRepository.findById(batchCourse.getId()).isEmpty());
+        // 2. Retained in DB/Trash
+        ProgrammeBatchCourse checkedOffering = programmeBatchCourseRepository.findTrashCourseById(batchCourse.getId()).orElseThrow();
         assertNotNull(checkedOffering.getDeletedAt());
         assertEquals(hod.getEmail(), checkedOffering.getDeletedBy());
         assertEquals("DELETED", checkedOffering.getStatus());
@@ -358,7 +370,8 @@ public class DeletionWorkflowIntegrationTest {
 
         assertEquals(HttpStatus.OK, execRes.getStatusCode());
 
-        ProgrammeBatch checkedBatch = programmeBatchRepository.findById(batch.getId()).orElseThrow();
+        assertTrue(programmeBatchRepository.findById(batch.getId()).isEmpty());
+        ProgrammeBatch checkedBatch = programmeBatchRepository.findTrashBatchById(batch.getId()).orElseThrow();
         assertNotNull(checkedBatch.getDeletedAt());
         assertEquals(director.getEmail(), checkedBatch.getDeletedBy());
         assertEquals("DELETED", checkedBatch.getStatus());

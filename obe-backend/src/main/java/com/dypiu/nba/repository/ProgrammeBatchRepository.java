@@ -122,4 +122,14 @@ public interface ProgrammeBatchRepository extends JpaRepository<ProgrammeBatch, 
     boolean existsByMasterProgrammeIdAndStartYearAndIdNotAndDeletedAtIsNull(String masterProgrammeId, Integer startYear, String id);
 
     boolean existsByMasterProgrammeIdAndStartYearAndDeletedAtIsNull(String masterProgrammeId, Integer startYear);
+
+    // Native queries to query trash if needed by developers (bypassing @SQLRestriction)
+    @Query(value = "SELECT * FROM programme_batches WHERE deleted_at IS NOT NULL", nativeQuery = true)
+    List<ProgrammeBatch> findAllTrashBatches();
+
+    @Query(value = "SELECT * FROM programme_batches WHERE id = :id AND deleted_at IS NOT NULL", nativeQuery = true)
+    Optional<ProgrammeBatch> findTrashBatchById(@Param("id") String id);
+
+    @Query(value = "SELECT * FROM programme_batches WHERE master_programme_id = :masterProgrammeId AND start_year = :startYear AND deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
+    Optional<ProgrammeBatch> findTrashBatchByMasterProgrammeIdAndStartYear(@Param("masterProgrammeId") String masterProgrammeId, @Param("startYear") Integer startYear);
 }
