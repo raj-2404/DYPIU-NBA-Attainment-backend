@@ -4,6 +4,7 @@ import com.dypiu.nba.entity.*;
 import com.dypiu.nba.repository.*;
 import com.dypiu.nba.dto.ProgrammeTargetDto;
 import com.dypiu.nba.dto.CourseMappingMatrixDto;
+import com.dypiu.nba.exception.BadRequestException;
 import com.dypiu.nba.exception.ResourceNotFoundException;
 import com.dypiu.nba.security.CurrentUserScope;
 import com.dypiu.nba.security.CurrentUserScopeService;
@@ -438,6 +439,14 @@ public class OutcomeService {
 
         if (pos != null) {
             for (ProgrammeOutcome po : pos) {
+                if (po.getCode() == null || po.getCode().trim().isBlank()) {
+                    throw new BadRequestException("Programme Outcome code is required.");
+                }
+                if (po.getStatement() == null || po.getStatement().trim().isBlank()) {
+                    throw new BadRequestException("Programme Outcome statement is required for " + po.getCode().trim() + ".");
+                }
+                po.setCode(po.getCode().trim());
+                po.setStatement(po.getStatement().trim());
                 po.setProgrammeBatchId(programmeBatchId);
 
                 String key = po.getCode().toLowerCase();
@@ -554,6 +563,14 @@ public class OutcomeService {
 
         if (psos != null) {
             for (ProgrammeSpecificOutcome pso : psos) {
+                if (pso.getCode() == null || pso.getCode().trim().isBlank()) {
+                    throw new BadRequestException("Programme Specific Outcome code is required.");
+                }
+                if (pso.getStatement() == null || pso.getStatement().trim().isBlank()) {
+                    throw new BadRequestException("Programme Specific Outcome statement is required for " + pso.getCode().trim() + ".");
+                }
+                pso.setCode(pso.getCode().trim());
+                pso.setStatement(pso.getStatement().trim());
                 pso.setProgrammeBatchId(programmeBatchId);
 
                 String key = pso.getCode().toLowerCase();
@@ -663,6 +680,14 @@ public class OutcomeService {
 
         if (peos != null) {
             for (PeoOutcome peo : peos) {
+                if (peo.getCode() == null || peo.getCode().trim().isBlank()) {
+                    throw new BadRequestException("PEO code is required.");
+                }
+                if (peo.getStatement() == null || peo.getStatement().trim().isBlank()) {
+                    throw new BadRequestException("PEO statement is required for " + peo.getCode().trim() + ".");
+                }
+                peo.setCode(peo.getCode().trim());
+                peo.setStatement(peo.getStatement().trim());
                 peo.setProgrammeBatchId(programmeBatchId);
 
                 String key = peo.getCode().toLowerCase();
@@ -749,11 +774,23 @@ public class OutcomeService {
                         (e1, e2) -> e1
                 ));
 
+        if (cos != null && cos.size() > 6) {
+            throw new BadRequestException("A course cannot have more than 6 Course Outcomes. Provided: " + cos.size());
+        }
+
         Set<String> processedIds = new HashSet<>();
         List<CourseOutcome> toSave = new ArrayList<>();
 
         if (cos != null) {
             for (CourseOutcome co : cos) {
+                if (co.getCode() == null || co.getCode().trim().isBlank()) {
+                    throw new BadRequestException("Course Outcome code is required.");
+                }
+                if (co.getStatement() == null || co.getStatement().trim().isBlank()) {
+                    throw new BadRequestException("Course Outcome statement is required for " + co.getCode().trim() + ".");
+                }
+                co.setCode(co.getCode().trim());
+                co.setStatement(co.getStatement().trim());
                 co.setProgrammeBatchCourseId(targetOfferingId);
                 co.setStatus(ApprovalStatus.DRAFT);
 
