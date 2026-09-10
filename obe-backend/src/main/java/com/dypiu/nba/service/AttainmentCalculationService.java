@@ -54,6 +54,7 @@ public class AttainmentCalculationService {
     private final AuditLogService auditLogService;
     private final MappingService mappingService;
     private final BatchLifecycleService batchLifecycleService;
+    private final IndirectAssessmentService indirectAssessmentService;
 
     @org.springframework.beans.factory.annotation.Value("${app.upload-dir:${app.upload.dir:${UPLOAD_STORAGE_PATH:${APP_UPLOAD_DIR:/app/uploads}}}}")
     private String baseUploadDir;
@@ -2565,11 +2566,20 @@ public class AttainmentCalculationService {
             }
         }
 
+        // Combine exit survey scores
+        Map<String, BigDecimal> combinedExitScores = new HashMap<>(exitSurveyPoMap);
+        combinedExitScores.putAll(exitSurveyPsoMap);
+
+        // Compute consolidated indirect scores across all Surveys & Co-Curricular Events + Programme End Survey
+        Map<String, BigDecimal> consolidatedIndirectMap = (indirectAssessmentService != null)
+                ? indirectAssessmentService.computeConsolidatedScores(programmeBatchId, combinedExitScores)
+                : combinedExitScores;
+
         List<ProgrammeAttainmentResultDto.OutcomeAttainmentItem> poOverallList = new ArrayList<>();
         for (ProgrammeAttainmentResultDto.OutcomeDirectItem d : poDirectBreakdown) {
             String code = d.getPoCode();
             BigDecimal direct = d.getOverallAverage();
-            BigDecimal indirect = exitSurveyPoMap.getOrDefault(code.toUpperCase(), BigDecimal.ZERO);
+            BigDecimal indirect = consolidatedIndirectMap.getOrDefault(code.toUpperCase(), exitSurveyPoMap.getOrDefault(code.toUpperCase(), BigDecimal.ZERO));
 
             double overallScore = (direct.doubleValue() * 0.80) + (indirect.doubleValue() * 0.20);
             BigDecimal overall = BigDecimal.valueOf(overallScore).setScale(2, RoundingMode.HALF_UP);
@@ -2604,7 +2614,7 @@ public class AttainmentCalculationService {
         for (ProgrammeAttainmentResultDto.OutcomeDirectItem d : psoDirectBreakdown) {
             String code = d.getPsoCode();
             BigDecimal direct = d.getOverallAverage();
-            BigDecimal indirect = exitSurveyPsoMap.getOrDefault(code.toUpperCase(), BigDecimal.ZERO);
+            BigDecimal indirect = consolidatedIndirectMap.getOrDefault(code.toUpperCase(), exitSurveyPsoMap.getOrDefault(code.toUpperCase(), BigDecimal.ZERO));
 
             double overallScore = (direct.doubleValue() * 0.80) + (indirect.doubleValue() * 0.20);
             BigDecimal overall = BigDecimal.valueOf(overallScore).setScale(2, RoundingMode.HALF_UP);
@@ -2634,9 +2644,7 @@ public class AttainmentCalculationService {
                     .build());
         }
 
-        Map<String, BigDecimal> indirectMap = new LinkedHashMap<>();
-        exitSurveyPoMap.forEach(indirectMap::put);
-        exitSurveyPsoMap.forEach(indirectMap::put);
+        Map<String, BigDecimal> indirectMap = new LinkedHashMap<>(consolidatedIndirectMap);
 
         List<ProgrammeAttainmentResultDto.StudentSurveyResponseRow> studentRows = new ArrayList<>();
         if (exitSurvey != null && exitSurvey.getStudentSurveyResponses() != null) {

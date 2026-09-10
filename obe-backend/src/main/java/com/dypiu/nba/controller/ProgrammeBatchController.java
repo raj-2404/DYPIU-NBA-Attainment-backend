@@ -20,6 +20,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.security.Principal;
 import java.util.List;
 
+import com.dypiu.nba.service.IndirectAssessmentService;
+import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @RequestMapping({"/programme-batches", "/api/v1/programme-batches"})
 @RequiredArgsConstructor
@@ -32,6 +37,7 @@ public class ProgrammeBatchController {
     private final OutcomeService outcomeService;
     private final com.dypiu.nba.service.BatchLifecycleService batchLifecycleService;
     private final RequestScopeAuthorizer requestScopeAuthorizer;
+    private final IndirectAssessmentService indirectAssessmentService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ProgrammeBatch>>> getAllProgrammeBatches(
@@ -405,6 +411,91 @@ public class ProgrammeBatchController {
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .success(true)
                 .message("Programme exit survey deleted successfully")
+                .build());
+    }
+
+    // --- Surveys & Co-Curricular Events (Indirect Assessments) Endpoints ---
+
+    @GetMapping("/{programmeBatchId}/indirect-assessments")
+    public ResponseEntity<ApiResponse<List<IndirectAssessmentDto>>> getIndirectAssessments(
+            @PathVariable String programmeBatchId) {
+        return ResponseEntity.ok(ApiResponse.<List<IndirectAssessmentDto>>builder()
+                .success(true)
+                .message("Indirect assessments retrieved successfully")
+                .data(indirectAssessmentService.getAssessments(programmeBatchId))
+                .build());
+    }
+
+    @GetMapping("/{programmeBatchId}/indirect-assessments/{id}")
+    public ResponseEntity<ApiResponse<IndirectAssessmentDto>> getIndirectAssessmentById(
+            @PathVariable String programmeBatchId,
+            @PathVariable String id) {
+        return ResponseEntity.ok(ApiResponse.<IndirectAssessmentDto>builder()
+                .success(true)
+                .data(indirectAssessmentService.getAssessmentById(programmeBatchId, id))
+                .build());
+    }
+
+    @PostMapping("/{programmeBatchId}/indirect-assessments")
+    public ResponseEntity<ApiResponse<IndirectAssessmentDto>> createIndirectAssessment(
+            @PathVariable String programmeBatchId,
+            @RequestBody IndirectAssessmentDto dto,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "System";
+        return ResponseEntity.ok(ApiResponse.<IndirectAssessmentDto>builder()
+                .success(true)
+                .message("Survey / Co-Curricular Event indirect assessment created successfully")
+                .data(indirectAssessmentService.createAssessment(programmeBatchId, dto, user))
+                .build());
+    }
+
+    @PutMapping("/{programmeBatchId}/indirect-assessments/{id}")
+    public ResponseEntity<ApiResponse<IndirectAssessmentDto>> updateIndirectAssessment(
+            @PathVariable String programmeBatchId,
+            @PathVariable String id,
+            @RequestBody IndirectAssessmentDto dto,
+            Principal principal) {
+        String user = principal != null ? principal.getName() : "System";
+        return ResponseEntity.ok(ApiResponse.<IndirectAssessmentDto>builder()
+                .success(true)
+                .message("Survey / Co-Curricular Event indirect assessment updated successfully")
+                .data(indirectAssessmentService.updateAssessment(programmeBatchId, id, dto, user))
+                .build());
+    }
+
+    @DeleteMapping("/{programmeBatchId}/indirect-assessments/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteIndirectAssessment(
+            @PathVariable String programmeBatchId,
+            @PathVariable String id) {
+        indirectAssessmentService.deleteAssessment(programmeBatchId, id);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .success(true)
+                .message("Survey / Co-Curricular Event indirect assessment deleted successfully")
+                .build());
+    }
+
+    @GetMapping("/{programmeBatchId}/indirect-assessments/consolidated")
+    public ResponseEntity<ApiResponse<ConsolidatedIndirectAttainmentDto>> getConsolidatedIndirectAttainment(
+            @PathVariable String programmeBatchId) {
+        ProgrammeBatch batch = academicService.getBatchById(programmeBatchId);
+        ProgrammeSurveyResultDto exitSurvey = calculationService.getProgrammeSurveyResult(batch.getMasterProgrammeId(), programmeBatchId);
+        Map<String, BigDecimal> exitScores = new HashMap<>();
+        if (exitSurvey != null) {
+            if (exitSurvey.getPoIndirectAttainment() != null) {
+                for (ProgrammeSurveyResultDto.PoIndirectItem it : exitSurvey.getPoIndirectAttainment()) {
+                    exitScores.put(it.getPoCode().toUpperCase(), it.getIndirectAttainment());
+                }
+            }
+            if (exitSurvey.getPsoIndirectAttainment() != null) {
+                for (ProgrammeSurveyResultDto.PsoIndirectItem it : exitSurvey.getPsoIndirectAttainment()) {
+                    exitScores.put(it.getPsoCode().toUpperCase(), it.getIndirectAttainment());
+                }
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.<ConsolidatedIndirectAttainmentDto>builder()
+                .success(true)
+                .message("Consolidated indirect attainment computed successfully")
+                .data(indirectAssessmentService.getConsolidatedIndirectAttainment(programmeBatchId, exitScores))
                 .build());
     }
 }
