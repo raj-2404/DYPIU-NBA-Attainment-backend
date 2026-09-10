@@ -245,6 +245,10 @@ public class AttainmentCalculationService {
                         .indirectWeight(new BigDecimal("20.00"))
                         .directThreshold(new BigDecimal("60.00"))
                         .indirectThreshold(new BigDecimal("60.00"))
+                        .approvedDirectWeight(new BigDecimal("80.00"))
+                        .approvedIndirectWeight(new BigDecimal("20.00"))
+                        .approvedDirectThreshold(new BigDecimal("60.00"))
+                        .approvedIndirectThreshold(new BigDecimal("60.00"))
                         .status(AttainmentConfigStatus.DRAFT)
                         .build());
         if (approvalRequestRepository != null) {
@@ -259,6 +263,62 @@ public class AttainmentCalculationService {
         return cfg;
     }
 
+    @Transactional(readOnly = true)
+    public AttainmentConfiguration getApprovedAttainmentConfig(String courseOfferingOrMasterCourseId) {
+        System.out.println("[AttainmentCalculationService] getApprovedAttainmentConfig called | courseOfferingOrMasterCourseId: " + courseOfferingOrMasterCourseId);
+        enforceOfferingOrCourseScope(courseOfferingOrMasterCourseId);
+        String offeringId = resolveOfferingId(courseOfferingOrMasterCourseId);
+        AttainmentConfiguration cfg = configRepository.findByProgrammeBatchCourseId(offeringId)
+                .orElseGet(() -> AttainmentConfiguration.builder()
+                        .id("cfg-" + offeringId)
+                        .programmeBatchCourseId(offeringId)
+                        .directWeight(new BigDecimal("80.00"))
+                        .indirectWeight(new BigDecimal("20.00"))
+                        .directThreshold(new BigDecimal("60.00"))
+                        .indirectThreshold(new BigDecimal("60.00"))
+                        .approvedDirectWeight(new BigDecimal("80.00"))
+                        .approvedIndirectWeight(new BigDecimal("20.00"))
+                        .approvedDirectThreshold(new BigDecimal("60.00"))
+                        .approvedIndirectThreshold(new BigDecimal("60.00"))
+                        .status(AttainmentConfigStatus.DRAFT)
+                        .build());
+
+        AttainmentConfiguration approvedView = AttainmentConfiguration.builder()
+                .id(cfg.getId())
+                .programmeBatchCourseId(cfg.getProgrammeBatchCourseId())
+                .directWeight(cfg.getEffectiveApprovedDirectWeight())
+                .indirectWeight(cfg.getEffectiveApprovedIndirectWeight())
+                .directThreshold(cfg.getEffectiveApprovedDirectThreshold())
+                .indirectThreshold(cfg.getEffectiveApprovedIndirectThreshold())
+                .directLevelsJson(cfg.getEffectiveApprovedDirectLevelsJson())
+                .indirectLevelsJson(cfg.getEffectiveApprovedIndirectLevelsJson())
+                .approvedDirectWeight(cfg.getEffectiveApprovedDirectWeight())
+                .approvedIndirectWeight(cfg.getEffectiveApprovedIndirectWeight())
+                .approvedDirectThreshold(cfg.getEffectiveApprovedDirectThreshold())
+                .approvedIndirectThreshold(cfg.getEffectiveApprovedIndirectThreshold())
+                .approvedDirectLevelsJson(cfg.getEffectiveApprovedDirectLevelsJson())
+                .approvedIndirectLevelsJson(cfg.getEffectiveApprovedIndirectLevelsJson())
+                .status(cfg.getStatus())
+                .submittedBy(cfg.getSubmittedBy())
+                .submittedAt(cfg.getSubmittedAt())
+                .approvedBy(cfg.getApprovedBy())
+                .approvedAt(cfg.getApprovedAt())
+                .createdAt(cfg.getCreatedAt())
+                .updatedAt(cfg.getUpdatedAt())
+                .build();
+
+        if (approvalRequestRepository != null) {
+            approvalRequestRepository.findByProgrammeBatchCourseId(offeringId).stream()
+                    .filter(a -> a.getType() == ApprovalType.ATTAINMENT_CONFIGURATION || a.getType() == ApprovalType.ATTAINMENT_SETTINGS)
+                    .max(Comparator.comparing(ApprovalRequest::getUpdatedAt, Comparator.nullsFirst(Comparator.naturalOrder())))
+                    .ifPresent(req -> {
+                        approvedView.setRevisionReason(req.getRemarks());
+                        approvedView.setReviewedBy(req.getApprovedBy());
+                    });
+        }
+        return approvedView;
+    }
+
     @Transactional
     public AttainmentConfiguration saveAttainmentConfig(String courseOfferingOrMasterCourseId, AttainmentConfiguration config) {
         System.out.println("[AttainmentCalculationService] saveAttainmentConfig called | courseOfferingOrMasterCourseId: " + courseOfferingOrMasterCourseId);
@@ -268,10 +328,32 @@ public class AttainmentCalculationService {
         if (approvalService != null) {
             approvalService.resetToDraftOnModification(ApprovalType.ATTAINMENT_CONFIGURATION, offeringId, null);
         }
-        config.setStatus(AttainmentConfigStatus.DRAFT);
-        config.setProgrammeBatchCourseId(offeringId);
-        if (config.getId() == null) config.setId("cfg-" + offeringId);
-        return configRepository.save(config);
+
+        AttainmentConfiguration existing = configRepository.findByProgrammeBatchCourseId(offeringId).orElse(null);
+        if (existing != null) {
+            existing.setDirectWeight(config.getDirectWeight() != null ? config.getDirectWeight() : new BigDecimal("80.00"));
+            existing.setIndirectWeight(config.getIndirectWeight() != null ? config.getIndirectWeight() : new BigDecimal("20.00"));
+            existing.setDirectThreshold(config.getDirectThreshold() != null ? config.getDirectThreshold() : new BigDecimal("60.00"));
+            existing.setIndirectThreshold(config.getIndirectThreshold() != null ? config.getIndirectThreshold() : new BigDecimal("60.00"));
+            if (config.getDirectLevelsJson() != null) {
+                existing.setDirectLevelsJson(config.getDirectLevelsJson());
+            }
+            if (config.getIndirectLevelsJson() != null) {
+                existing.setIndirectLevelsJson(config.getIndirectLevelsJson());
+            }
+            existing.setStatus(AttainmentConfigStatus.DRAFT);
+            existing.setUpdatedAt(ZonedDateTime.now());
+            return configRepository.save(existing);
+        } else {
+            config.setStatus(AttainmentConfigStatus.DRAFT);
+            config.setProgrammeBatchCourseId(offeringId);
+            if (config.getId() == null) config.setId("cfg-" + offeringId);
+            if (config.getApprovedDirectWeight() == null) config.setApprovedDirectWeight(new BigDecimal("80.00"));
+            if (config.getApprovedIndirectWeight() == null) config.setApprovedIndirectWeight(new BigDecimal("20.00"));
+            if (config.getApprovedDirectThreshold() == null) config.setApprovedDirectThreshold(new BigDecimal("60.00"));
+            if (config.getApprovedIndirectThreshold() == null) config.setApprovedIndirectThreshold(new BigDecimal("60.00"));
+            return configRepository.save(config);
+        }
     }
 
     // --- Database Persistence Helper Methods ---
@@ -614,7 +696,7 @@ public class AttainmentCalculationService {
     public ExaminationAttainmentResultDto calculateExaminationAttainment(String courseOfferingOrMasterCourseId, ExaminationMarksPayloadDto payload) {
         System.out.println("[AttainmentCalculationService] calculateExaminationAttainment called | courseOfferingOrMasterCourseId: " + courseOfferingOrMasterCourseId);
         String offeringId = resolveOfferingId(courseOfferingOrMasterCourseId);
-        AttainmentConfiguration config = getAttainmentConfig(offeringId);
+        AttainmentConfiguration config = getApprovedAttainmentConfig(offeringId);
 
         if (payload == null || payload.getStudentMarks() == null || payload.getStudentMarks().isEmpty()) {
             return getExaminationAttainment(offeringId);
@@ -1059,7 +1141,7 @@ public class AttainmentCalculationService {
                         .build());
             }
 
-            BigDecimal threshold = getAttainmentConfig(offeringId).getDirectThreshold();
+            BigDecimal threshold = getApprovedAttainmentConfig(offeringId).getDirectThreshold();
             if (threshold == null) threshold = new BigDecimal("60.00");
             Optional<UploadedDocument> docOpt = uploadedDocumentRepository
                     .findFirstByProgrammeBatchCourseIdAndDocumentTypeOrderByUploadedAtDesc(offeringId, DocumentType.EXAMINATION);
@@ -1079,7 +1161,7 @@ public class AttainmentCalculationService {
 
         return ExaminationAttainmentResultDto.builder()
                 .masterCourseId(offeringId)
-                .thresholdPercentage(getAttainmentConfig(offeringId).getDirectThreshold() != null ? getAttainmentConfig(offeringId).getDirectThreshold() : new BigDecimal("60.00"))
+                .thresholdPercentage(getApprovedAttainmentConfig(offeringId).getDirectThreshold() != null ? getApprovedAttainmentConfig(offeringId).getDirectThreshold() : new BigDecimal("60.00"))
                 .totalStudents(0)
                 .coMaxMarks(Collections.emptyMap())
                 .coThresholdMarks(Collections.emptyMap())
@@ -1098,7 +1180,7 @@ public class AttainmentCalculationService {
     public SurveyAttainmentResultDto calculateSurveyAttainment(String courseOfferingOrMasterCourseId, SurveyMarksPayloadDto payload) {
         System.out.println("[AttainmentCalculationService] calculateSurveyAttainment called | courseOfferingOrMasterCourseId: " + courseOfferingOrMasterCourseId);
         String offeringId = resolveOfferingId(courseOfferingOrMasterCourseId);
-        AttainmentConfiguration config = getAttainmentConfig(offeringId);
+        AttainmentConfiguration config = getApprovedAttainmentConfig(offeringId);
 
         if (payload == null || payload.getSurveyResponses() == null || payload.getSurveyResponses().isEmpty()) {
             return getSurveyAttainment(offeringId);
@@ -1515,7 +1597,7 @@ public class AttainmentCalculationService {
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(offeringId).orElse(null);
         String masterCourseId = offering != null ? offering.getMasterCourseId() : offeringId;
 
-        AttainmentConfiguration config = getAttainmentConfig(offeringId);
+        AttainmentConfiguration config = getApprovedAttainmentConfig(offeringId);
         List<CourseOutcome> cos = courseOutcomeRepository.findByProgrammeBatchCourseId(offeringId);
 
         ExaminationAttainmentResultDto examResult = getExaminationAttainment(offeringId);

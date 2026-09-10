@@ -182,6 +182,16 @@ public class ProgrammeBatchCourseController {
                 .build());
     }
 
+    @GetMapping("/{programmeBatchCourseId}/config/approved")
+    public ResponseEntity<ApiResponse<AttainmentConfiguration>> getApprovedAttainmentConfig(
+            @PathVariable String programmeBatchCourseId) {
+        return ResponseEntity.ok(ApiResponse.<AttainmentConfiguration>builder()
+                .success(true)
+                .message("Approved attainment configuration retrieved successfully")
+                .data(calculationService.getApprovedAttainmentConfig(programmeBatchCourseId))
+                .build());
+    }
+
     @RequestMapping(value = "/{programmeBatchCourseId}/config", method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<ApiResponse<AttainmentConfiguration>> saveAttainmentConfig(
             @PathVariable String programmeBatchCourseId,

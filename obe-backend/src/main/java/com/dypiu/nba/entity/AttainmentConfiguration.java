@@ -63,6 +63,34 @@ public class AttainmentConfiguration {
     @Column(name = "indirect_levels_json", columnDefinition = "TEXT")
     private String indirectLevelsJson;
 
+    @Column(name = "approved_direct_weight")
+    @Builder.Default
+    private BigDecimal approvedDirectWeight = new BigDecimal("80.00");
+
+    @Column(name = "approved_indirect_weight")
+    @Builder.Default
+    private BigDecimal approvedIndirectWeight = new BigDecimal("20.00");
+
+    @Column(name = "approved_direct_threshold")
+    @Builder.Default
+    private BigDecimal approvedDirectThreshold = new BigDecimal("60.00");
+
+    @Column(name = "approved_indirect_threshold")
+    @Builder.Default
+    private BigDecimal approvedIndirectThreshold = new BigDecimal("60.00");
+
+    @Column(name = "approved_direct_levels_json", columnDefinition = "TEXT")
+    private String approvedDirectLevelsJson;
+
+    @Column(name = "approved_indirect_levels_json", columnDefinition = "TEXT")
+    private String approvedIndirectLevelsJson;
+
+    @Column(name = "approved_by")
+    private String approvedBy;
+
+    @Column(name = "approved_at")
+    private ZonedDateTime approvedAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private ZonedDateTime createdAt;
 
@@ -100,6 +128,41 @@ public class AttainmentConfiguration {
         this.reviewedBy = reviewedBy;
     }
 
+    public BigDecimal getEffectiveApprovedDirectWeight() {
+        return approvedDirectWeight != null ? approvedDirectWeight : (directWeight != null ? directWeight : new BigDecimal("80.00"));
+    }
+
+    public BigDecimal getEffectiveApprovedIndirectWeight() {
+        return approvedIndirectWeight != null ? approvedIndirectWeight : (indirectWeight != null ? indirectWeight : new BigDecimal("20.00"));
+    }
+
+    public BigDecimal getEffectiveApprovedDirectThreshold() {
+        return approvedDirectThreshold != null ? approvedDirectThreshold : (directThreshold != null ? directThreshold : new BigDecimal("60.00"));
+    }
+
+    public BigDecimal getEffectiveApprovedIndirectThreshold() {
+        return approvedIndirectThreshold != null ? approvedIndirectThreshold : (indirectThreshold != null ? indirectThreshold : new BigDecimal("60.00"));
+    }
+
+    public String getEffectiveApprovedDirectLevelsJson() {
+        return (approvedDirectLevelsJson != null && !approvedDirectLevelsJson.isBlank()) ? approvedDirectLevelsJson : directLevelsJson;
+    }
+
+    public String getEffectiveApprovedIndirectLevelsJson() {
+        return (approvedIndirectLevelsJson != null && !approvedIndirectLevelsJson.isBlank()) ? approvedIndirectLevelsJson : indirectLevelsJson;
+    }
+
+    public void snapshotToApproved(String approver) {
+        this.approvedDirectWeight = this.directWeight != null ? this.directWeight : new BigDecimal("80.00");
+        this.approvedIndirectWeight = this.indirectWeight != null ? this.indirectWeight : new BigDecimal("20.00");
+        this.approvedDirectThreshold = this.directThreshold != null ? this.directThreshold : new BigDecimal("60.00");
+        this.approvedIndirectThreshold = this.indirectThreshold != null ? this.indirectThreshold : new BigDecimal("60.00");
+        this.approvedDirectLevelsJson = this.directLevelsJson;
+        this.approvedIndirectLevelsJson = this.indirectLevelsJson;
+        this.approvedBy = approver;
+        this.approvedAt = ZonedDateTime.now();
+    }
+
     @Transient
     public List<Map<String, Object>> getDirectLevels() {
         if (directLevelsJson != null && !directLevelsJson.isBlank()) {
@@ -126,6 +189,32 @@ public class AttainmentConfiguration {
     }
 
     @Transient
+    public List<Map<String, Object>> getApprovedDirectLevels() {
+        String json = getEffectiveApprovedDirectLevelsJson();
+        if (json != null && !json.isBlank()) {
+            try {
+                return new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                        json,
+                        new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {}
+                );
+            } catch (Exception ignored) {}
+        }
+        return List.of(
+                Map.of("level", 1, "minPercentage", 0, "maxPercentage", 40),
+                Map.of("level", 2, "minPercentage", 40, "maxPercentage", 60),
+                Map.of("level", 3, "minPercentage", 60, "maxPercentage", 100)
+        );
+    }
+
+    public void setApprovedDirectLevels(List<Map<String, Object>> approvedDirectLevels) {
+        if (approvedDirectLevels != null && !approvedDirectLevels.isEmpty()) {
+            try {
+                this.approvedDirectLevelsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(approvedDirectLevels);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Transient
     public List<Map<String, Object>> getIndirectLevels() {
         if (indirectLevelsJson != null && !indirectLevelsJson.isBlank()) {
             try {
@@ -146,6 +235,32 @@ public class AttainmentConfiguration {
         if (indirectLevels != null && !indirectLevels.isEmpty()) {
             try {
                 this.indirectLevelsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(indirectLevels);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    @Transient
+    public List<Map<String, Object>> getApprovedIndirectLevels() {
+        String json = getEffectiveApprovedIndirectLevelsJson();
+        if (json != null && !json.isBlank()) {
+            try {
+                return new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                        json,
+                        new com.fasterxml.jackson.core.type.TypeReference<List<Map<String, Object>>>() {}
+                );
+            } catch (Exception ignored) {}
+        }
+        return List.of(
+                Map.of("level", 1, "minPercentage", 0, "maxPercentage", 40),
+                Map.of("level", 2, "minPercentage", 40, "maxPercentage", 60),
+                Map.of("level", 3, "minPercentage", 60, "maxPercentage", 100)
+        );
+    }
+
+    public void setApprovedIndirectLevels(List<Map<String, Object>> approvedIndirectLevels) {
+        if (approvedIndirectLevels != null && !approvedIndirectLevels.isEmpty()) {
+            try {
+                this.approvedIndirectLevelsJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(approvedIndirectLevels);
             } catch (Exception ignored) {}
         }
     }

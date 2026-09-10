@@ -709,6 +709,7 @@ public class ApprovalService {
                 configRepository.findByProgrammeBatchCourseId(batchCourseId).ifPresent(cfg -> {
                     if (status == ApprovalStatus.APPROVED) {
                         cfg.setStatus(AttainmentConfigStatus.APPROVED);
+                        cfg.snapshotToApproved(verifierName != null ? verifierName : req.getApprovedBy());
                     } else if (status == ApprovalStatus.REVISION_REQUESTED || status == ApprovalStatus.REJECTED || status == ApprovalStatus.NEEDS_REVISION) {
                         cfg.setStatus(AttainmentConfigStatus.REVISION_REQUESTED);
                     } else if (status == ApprovalStatus.PENDING || status == ApprovalStatus.SUBMITTED || status == ApprovalStatus.PENDING_APPROVAL) {

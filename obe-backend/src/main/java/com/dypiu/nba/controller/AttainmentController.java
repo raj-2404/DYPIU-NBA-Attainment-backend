@@ -42,6 +42,24 @@ public class AttainmentController {
                 .build());
     }
 
+    @GetMapping({"/config/{masterCourseId}/approved", "/configs/{masterCourseId}/approved", "/configurations/programme-batch-courses/{masterCourseId}/approved"})
+    public ResponseEntity<ApiResponse<AttainmentConfiguration>> getApprovedConfig(
+            @PathVariable String masterCourseId,
+            @RequestParam(required = false) String programmeBatchId,
+            java.security.Principal principal) {
+        com.dypiu.nba.entity.User user = reportAccessService.getAuthenticatedUser(principal);
+        if (programmeBatchCourseRepository.existsById(masterCourseId)) {
+            reportAccessService.validateCourseOfferingAccess(user, masterCourseId);
+        } else {
+            reportAccessService.validateCourseAccess(user, masterCourseId);
+        }
+        return ResponseEntity.ok(ApiResponse.<AttainmentConfiguration>builder()
+                .success(true)
+                .message("Approved attainment configuration retrieved successfully")
+                .data(calculationService.getApprovedAttainmentConfig(masterCourseId))
+                .build());
+    }
+
     @RequestMapping(value = {"/config/{masterCourseId}", "/configs/{masterCourseId}", "/configurations/programme-batch-courses/{masterCourseId}"}, method = {RequestMethod.POST, RequestMethod.PUT})
     public ResponseEntity<ApiResponse<AttainmentConfiguration>> saveConfig(
             @PathVariable String masterCourseId,
