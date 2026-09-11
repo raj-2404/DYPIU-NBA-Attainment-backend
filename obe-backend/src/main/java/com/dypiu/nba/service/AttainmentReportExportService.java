@@ -52,7 +52,7 @@ public class AttainmentReportExportService {
      */
     @Transactional(readOnly = true)
     public byte[] generateAttainmentExcel(String masterCourseId, String programmeBatchId) {
-        System.out.println("[AttainmentReportExportService] generateAttainmentExcel called | masterCourseId: " + masterCourseId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AttainmentReportExportService] generateAttainmentExcel called | masterCourseId: " + masterCourseId + " | programmeBatchId: " + programmeBatchId);
         log.info("[AttainmentReportExportService] Generating Attainment Excel for masterCourseId: {}, programmeBatchId: {}", masterCourseId, programmeBatchId);
 
         ProgrammeBatchCourse course = programmeBatchCourseRepository.findById(masterCourseId).orElse(null);
@@ -430,7 +430,7 @@ public class AttainmentReportExportService {
      */
     @Transactional(readOnly = true)
     public byte[] generateAttainmentPdf(String masterCourseId, String programmeBatchId) {
-        System.out.println("[AttainmentReportExportService] generateAttainmentPdf called | masterCourseId: " + masterCourseId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AttainmentReportExportService] generateAttainmentPdf called | masterCourseId: " + masterCourseId + " | programmeBatchId: " + programmeBatchId);
         log.info("[AttainmentReportExportService] Generating Attainment PDF for masterCourseId: {}, programmeBatchId: {}", masterCourseId, programmeBatchId);
 
         ProgrammeBatchCourse course = programmeBatchCourseRepository.findById(masterCourseId).orElse(null);
@@ -882,7 +882,7 @@ public class AttainmentReportExportService {
      */
     @Transactional(readOnly = true)
     public byte[] generateProgrammeBatchExcel(String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[AttainmentReportExportService] generateProgrammeBatchExcel called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AttainmentReportExportService] generateProgrammeBatchExcel called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         log.info("[AttainmentReportExportService] Generating Programme Batch Attainment Excel for masterProgrammeId: {}, programmeBatchId: {}", masterProgrammeId, programmeBatchId);
 
         MasterProgramme prog = (masterProgrammeId != null && !masterProgrammeId.isBlank())

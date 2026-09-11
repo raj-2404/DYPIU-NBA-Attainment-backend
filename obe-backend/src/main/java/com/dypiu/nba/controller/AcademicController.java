@@ -1,4 +1,5 @@
 package com.dypiu.nba.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.dto.DirectorSetupProgressDto;
 import com.dypiu.nba.dto.DirectorSchoolSummaryDto;
@@ -25,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping({"/academic", "/api/v1/academic"})
 @RequiredArgsConstructor
@@ -175,9 +177,9 @@ public class AcademicController {
         String email = (hodEmail != null && !hodEmail.isBlank())
                 ? hodEmail
                 : (principal != null ? principal.getName() : null);
-        System.out.println("\n>>> [CONTROLLER] GET /api/v1/academic/hod/department-summary | hodEmail param: " + hodEmail + " | principal: " + (principal != null ? principal.getName() : "null") + " | resolved email: " + email);
+        log.debug("\n>>> [CONTROLLER] GET /api/v1/academic/hod/department-summary | hodEmail param: " + hodEmail + " | principal: " + (principal != null ? principal.getName() : "null") + " | resolved email: " + email);
         HodDepartmentSummaryDto data = academicService.getHodDepartmentSummary(email);
-        System.out.println("<<< [CONTROLLER] GET /api/v1/academic/hod/department-summary SUCCESS | deptId: " + data.getDeptId() + " | deptName: " + data.getDeptName() + " | hodEmail: " + data.getHodEmail());
+        log.debug("<<< [CONTROLLER] GET /api/v1/academic/hod/department-summary SUCCESS | deptId: " + data.getDeptId() + " | deptName: " + data.getDeptName() + " | hodEmail: " + data.getHodEmail());
         return ResponseEntity.ok(ApiResponse.<HodDepartmentSummaryDto>builder()
                 .success(true)
                 .data(data)
@@ -195,9 +197,9 @@ public class AcademicController {
                 ? hodEmail
                 : (principal != null ? principal.getName() : null);
         String deptId = (departmentId != null && !departmentId.isBlank()) ? departmentId : id;
-        System.out.println("\n>>> [CONTROLLER] GET /api/v1/academic/hod/setup-progress | deptId: " + deptId + " | email: " + email);
+        log.debug("\n>>> [CONTROLLER] GET /api/v1/academic/hod/setup-progress | deptId: " + deptId + " | email: " + email);
         HodSetupProgressDto data = academicService.getHodSetupProgress(deptId, email);
-        System.out.println("<<< [CONTROLLER] GET /api/v1/academic/hod/setup-progress SUCCESS | currentStep: " + data.getCurrentStep() + " | status: " + data.getOverallStatus());
+        log.debug("<<< [CONTROLLER] GET /api/v1/academic/hod/setup-progress SUCCESS | currentStep: " + data.getCurrentStep() + " | status: " + data.getOverallStatus());
         return ResponseEntity.ok(ApiResponse.<HodSetupProgressDto>builder()
                 .success(true)
                 .data(data)
@@ -240,9 +242,9 @@ public class AcademicController {
             }
         }
         if (targetStep == null) targetStep = 1;
-        System.out.println("\n>>> [CONTROLLER] POST/PUT /api/v1/academic/hod/setup-progress | deptId: " + deptId + " | step: " + targetStep + " | email: " + email);
+        log.debug("\n>>> [CONTROLLER] POST/PUT /api/v1/academic/hod/setup-progress | deptId: " + deptId + " | step: " + targetStep + " | email: " + email);
         HodSetupProgressDto updated = academicService.updateHodSetupProgress(deptId, targetStep, completedStep, completedStepsList, email);
-        System.out.println("<<< [CONTROLLER] POST/PUT /api/v1/academic/hod/setup-progress SUCCESS | newStep: " + updated.getCurrentStep() + " | completedSteps: " + updated.getCompletedSteps());
+        log.debug("<<< [CONTROLLER] POST/PUT /api/v1/academic/hod/setup-progress SUCCESS | newStep: " + updated.getCurrentStep() + " | completedSteps: " + updated.getCompletedSteps());
         return ResponseEntity.ok(ApiResponse.<HodSetupProgressDto>builder()
                 .success(true)
                 .message("HOD setup progress updated successfully")
@@ -260,9 +262,9 @@ public class AcademicController {
                 ? hodEmail
                 : (principal != null ? principal.getName() : null);
         String deptId = (departmentId != null && !departmentId.isBlank()) ? departmentId : id;
-        System.out.println("\n>>> [CONTROLLER] POST /api/v1/academic/hod/setup-progress/complete | deptId: " + deptId + " | email: " + email);
+        log.debug("\n>>> [CONTROLLER] POST /api/v1/academic/hod/setup-progress/complete | deptId: " + deptId + " | email: " + email);
         HodSetupProgressDto completed = academicService.completeHodSetup(deptId, email);
-        System.out.println("<<< [CONTROLLER] POST /api/v1/academic/hod/setup-progress/complete SUCCESS | status: " + completed.getOverallStatus());
+        log.debug("<<< [CONTROLLER] POST /api/v1/academic/hod/setup-progress/complete SUCCESS | status: " + completed.getOverallStatus());
         return ResponseEntity.ok(ApiResponse.<HodSetupProgressDto>builder()
                 .success(true)
                 .message("HOD setup marked as completed successfully")
@@ -553,9 +555,9 @@ public class AcademicController {
 
     @PostMapping("/master-programmes")
     public ResponseEntity<ApiResponse<MasterProgramme>> saveProgramme(@RequestBody MasterProgramme programme) {
-        System.out.println("\n>>> [CONTROLLER] POST /api/v1/academic/master-programmes | id: " + (programme != null ? programme.getId() : "null") + " | name: " + (programme != null ? programme.getName() : "null") + " | coordinator: " + (programme != null ? programme.getCoordinator() : "null") + " | coordinatorEmail: " + (programme != null ? programme.getCoordinatorEmail() : "null"));
+        log.debug("\n>>> [CONTROLLER] POST /api/v1/academic/master-programmes | id: " + (programme != null ? programme.getId() : "null") + " | name: " + (programme != null ? programme.getName() : "null") + " | coordinator: " + (programme != null ? programme.getCoordinator() : "null") + " | coordinatorEmail: " + (programme != null ? programme.getCoordinatorEmail() : "null"));
         MasterProgramme saved = academicService.saveProgramme(programme);
-        System.out.println("<<< [CONTROLLER] POST /api/v1/academic/master-programmes SUCCESS | savedId: " + saved.getId() + " | coordinator: " + saved.getCoordinator() + " | coordinatorEmail: " + saved.getCoordinatorEmail());
+        log.debug("<<< [CONTROLLER] POST /api/v1/academic/master-programmes SUCCESS | savedId: " + saved.getId() + " | coordinator: " + saved.getCoordinator() + " | coordinatorEmail: " + saved.getCoordinatorEmail());
         return ResponseEntity.ok(ApiResponse.<MasterProgramme>builder()
                 .success(true)
                 .message("MasterProgramme saved successfully")
@@ -568,9 +570,9 @@ public class AcademicController {
             @PathVariable String id,
             @RequestBody MasterProgramme programme) {
         programme.setId(id);
-        System.out.println("\n>>> [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + " | name: " + programme.getName() + " | coordinator: " + programme.getCoordinator() + " | coordinatorEmail: " + programme.getCoordinatorEmail());
+        log.debug("\n>>> [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + " | name: " + programme.getName() + " | coordinator: " + programme.getCoordinator() + " | coordinatorEmail: " + programme.getCoordinatorEmail());
         MasterProgramme saved = academicService.saveProgramme(programme);
-        System.out.println("<<< [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + " SUCCESS | savedId: " + saved.getId() + " | coordinator: " + saved.getCoordinator() + " | coordinatorEmail: " + saved.getCoordinatorEmail());
+        log.debug("<<< [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + " SUCCESS | savedId: " + saved.getId() + " | coordinator: " + saved.getCoordinator() + " | coordinatorEmail: " + saved.getCoordinatorEmail());
         return ResponseEntity.ok(ApiResponse.<MasterProgramme>builder()
                 .success(true)
                 .message("MasterProgramme updated successfully")
@@ -584,7 +586,7 @@ public class AcademicController {
             @RequestBody java.util.Map<String, Object> body) {
         String coordinator = body.containsKey("coordinator") ? String.valueOf(body.get("coordinator")) : (body.containsKey("coordinatorId") ? String.valueOf(body.get("coordinatorId")) : null);
         String coordinatorEmail = body.containsKey("coordinatorEmail") ? String.valueOf(body.get("coordinatorEmail")) : null;
-        System.out.println("\n>>> [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + "/coordinator | coordinator: " + coordinator + " | email: " + coordinatorEmail);
+        log.debug("\n>>> [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + "/coordinator | coordinator: " + coordinator + " | email: " + coordinatorEmail);
         MasterProgramme prog = academicService.getProgrammeById(id);
         if (prog == null) {
             prog = MasterProgramme.builder().id(id).name("MasterProgramme " + id).degreeAwarded(id).build();
@@ -592,7 +594,7 @@ public class AcademicController {
         if (coordinator != null) prog.setCoordinator(coordinator);
         if (coordinatorEmail != null) prog.setCoordinatorEmail(coordinatorEmail);
         MasterProgramme saved = academicService.saveProgramme(prog);
-        System.out.println("<<< [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + "/coordinator SUCCESS | coordinator: " + saved.getCoordinator());
+        log.debug("<<< [CONTROLLER] PUT /api/v1/academic/master-programmes/" + id + "/coordinator SUCCESS | coordinator: " + saved.getCoordinator());
         return ResponseEntity.ok(ApiResponse.<MasterProgramme>builder()
                 .success(true)
                 .message("MasterProgramme coordinator updated successfully")
@@ -602,9 +604,9 @@ public class AcademicController {
 
     @DeleteMapping("/master-programmes/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteProgramme(@PathVariable String id) {
-        System.out.println("\n>>> [CONTROLLER] DELETE /api/v1/academic/master-programmes/" + id);
+        log.debug("\n>>> [CONTROLLER] DELETE /api/v1/academic/master-programmes/" + id);
         academicService.deleteProgramme(id);
-        System.out.println("<<< [CONTROLLER] DELETE /api/v1/academic/master-programmes/" + id + " SUCCESS");
+        log.debug("<<< [CONTROLLER] DELETE /api/v1/academic/master-programmes/" + id + " SUCCESS");
         return ResponseEntity.ok(ApiResponse.<Void>builder().success(true).message("MasterProgramme deleted").build());
     }
 

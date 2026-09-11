@@ -1,4 +1,5 @@
 package com.dypiu.nba.service;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.entity.*;
 import com.dypiu.nba.exception.ResourceNotFoundException;
@@ -26,6 +27,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AcademicService {
@@ -56,6 +58,7 @@ public class AcademicService {
     private final ApprovalRequestRepository approvalRequestRepository;
     private final ApprovalHistoryRepository approvalHistoryRepository;
     private final com.dypiu.nba.security.RequestScopeAuthorizer requestScopeAuthorizer;
+    private final AcademicLookupCacheService academicLookupCacheService;
 
     private static final Comparator<String> NATURAL_CODE_COMPARATOR = (c1, c2) -> {
         if (c1 == null) return -1;
@@ -274,7 +277,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public com.dypiu.nba.dto.BatchContextDto getBatchContext(String programmeBatchId) {
-        System.out.println("[AcademicService] getBatchContext called | programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] getBatchContext called | programmeBatchId: " + programmeBatchId);
         ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
                 .orElseThrow(() -> new ResourceNotFoundException("ProgrammeBatch not found: " + programmeBatchId));
 
@@ -409,7 +412,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public List<ProgrammeBatchCourse> getProgrammeBatchCoursesByBatch(String programmeBatchId) {
-        System.out.println("[AcademicService] getProgrammeBatchCoursesByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] getProgrammeBatchCoursesByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
         String targetBatchId = programmeBatchId;
         if (targetBatchId != null && !targetBatchId.isBlank()) {
             java.util.Optional<ProgrammeBatch> bByName = programmeBatchRepository.findFirstByNameIgnoreCaseAndDeletedAtIsNull(targetBatchId.trim());
@@ -462,7 +465,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public ProgrammeBatchCourse getProgrammeBatchCourseById(String offeringId) {
-        System.out.println("[AcademicService] getProgrammeBatchCourseById called | offeringId: " + offeringId);
+        log.debug("[AcademicService] getProgrammeBatchCourseById called | offeringId: " + offeringId);
         if (offeringId == null || offeringId.isBlank()) return null;
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findByIdAndDeletedAtIsNull(offeringId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course offering not found: " + offeringId));
@@ -718,7 +721,7 @@ public class AcademicService {
 
     @Transactional
     public ProgrammeBatchCourse saveProgrammeBatchCourse(ProgrammeBatchCourse offering) {
-        System.out.println("[AcademicService] saveProgrammeBatchCourse called | id: " + (offering != null ? offering.getId() : "null"));
+        log.debug("[AcademicService] saveProgrammeBatchCourse called | id: " + (offering != null ? offering.getId() : "null"));
         if (offering == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Course offering details cannot be null.");
         }
@@ -787,7 +790,7 @@ public class AcademicService {
 
     @Transactional
     public void deleteProgrammeBatchCourse(String id) {
-        System.out.println("[AcademicService] deleteProgrammeBatchCourse called | id: " + id);
+        log.debug("[AcademicService] deleteProgrammeBatchCourse called | id: " + id);
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("MasterCourse offering not found: " + id));
         if (offering.getProgrammeBatchId() != null) {
@@ -806,7 +809,7 @@ public class AcademicService {
     // --- Director School Summary ---
     @Transactional(readOnly = true)
     public DirectorSchoolSummaryDto getDirectorSchoolSummary(String directorEmail) {
-        System.out.println("[AcademicService] Starting school summary fetch for directorEmail: " + directorEmail);
+        log.debug("[AcademicService] Starting school summary fetch for directorEmail: " + directorEmail);
         CurrentUserScope scope = getScope();
         Optional<School> schoolOpt = Optional.empty();
 
@@ -835,7 +838,7 @@ public class AcademicService {
         }
 
         if (schoolOpt.isEmpty()) {
-            System.out.println("[AcademicService] No school found in database.");
+            log.debug("[AcademicService] No school found in database.");
             return DirectorSchoolSummaryDto.builder()
                     .schoolId(null)
                     .schoolName(null)
@@ -884,14 +887,14 @@ public class AcademicService {
                 .totalProgrammes(schoolProgrammes.size())
                 .build();
 
-        System.out.println("[AcademicService] Fetched director school summary for school: " + school.getName() + " (ID: " + school.getId() + ")");
+        log.debug("[AcademicService] Fetched director school summary for school: " + school.getName() + " (ID: " + school.getId() + ")");
         return summary;
     }
 
     // --- Director Department Summary ---
     @Transactional(readOnly = true)
     public List<DepartmentSummaryDto> getDepartmentSummary(String schoolId, String directorEmail) {
-        System.out.println("[AcademicService] getDepartmentSummary called | schoolId: " + schoolId + " | directorEmail: " + directorEmail);
+        log.debug("[AcademicService] getDepartmentSummary called | schoolId: " + schoolId + " | directorEmail: " + directorEmail);
         CurrentUserScope scope = getScope();
         String targetSchoolId = null;
 
@@ -931,14 +934,14 @@ public class AcademicService {
                     .build());
         }
 
-        System.out.println("[AcademicService] Fetched department summary list (" + list.size() + " items) for schoolId: " + targetSchoolId);
+        log.debug("[AcademicService] Fetched department summary list (" + list.size() + " items) for schoolId: " + targetSchoolId);
         return list;
     }
 
     // --- Director Setup Progress ---
     @Transactional(readOnly = true)
     public DirectorSetupProgressDto getDirectorSetupProgress(String schoolId, String directorEmail) {
-        System.out.println("[AcademicService] getDirectorSetupProgress called | schoolId: " + schoolId + " | directorEmail: " + directorEmail);
+        log.debug("[AcademicService] getDirectorSetupProgress called | schoolId: " + schoolId + " | directorEmail: " + directorEmail);
         CurrentUserScope scope = getScope();
         if (schoolId != null && !schoolId.isBlank()) {
             enforceSchoolScope(schoolId.trim());
@@ -979,7 +982,7 @@ public class AcademicService {
                         .build());
 
         DirectorSetupProgressDto dto = buildSetupProgressDto(progress);
-        System.out.println("[AcademicService] Fetched director setup progress for schoolId: " + finalSchoolId + " at step: " + progress.getCurrentStep() + ", completedSteps: " + dto.getCompletedSteps());
+        log.debug("[AcademicService] Fetched director setup progress for schoolId: " + finalSchoolId + " at step: " + progress.getCurrentStep() + ", completedSteps: " + dto.getCompletedSteps());
         return dto;
     }
 
@@ -1015,7 +1018,7 @@ public class AcademicService {
             Integer targetStep,
             String completedStep,
             List<String> completedStepsList) {
-        System.out.println("[AcademicService] updateDirectorSetupProgress called | schoolId: " + schoolId + " | targetStep: " + targetStep + " | completedStep: " + completedStep + " | completedStepsList: " + completedStepsList);
+        log.debug("[AcademicService] updateDirectorSetupProgress called | schoolId: " + schoolId + " | targetStep: " + targetStep + " | completedStep: " + completedStep + " | completedStepsList: " + completedStepsList);
 
         CurrentUserScope scope = getScope();
         if (schoolId != null && !schoolId.isBlank()) {
@@ -1097,7 +1100,7 @@ public class AcademicService {
         directorSetupProgressRepository.save(progress);
 
         DirectorSetupProgressDto dto = buildSetupProgressDto(progress);
-        System.out.println(
+        log.debug(
                 "[AcademicService] Director setup progress updated | " +
                         "schoolId=" + targetSchoolId +
                         " | currentStep=" + currentStep +
@@ -1159,17 +1162,17 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public School getSchoolById(String id) {
-        System.out.println("[AcademicService] getSchoolById called | id: " + id);
+        log.debug("[AcademicService] getSchoolById called | id: " + id);
         enforceSchoolScope(id);
         School school = schoolRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("School not found with id: " + id));
-        System.out.println("[AcademicService] Fetched school by id: " + id);
+        log.debug("[AcademicService] Fetched school by id: " + id);
         return school;
     }
 
     @Transactional
     public School saveSchool(School school) {
-        System.out.println("[AcademicService] saveSchool called | school: " + (school != null ? school.getName() : "null"));
+        log.debug("[AcademicService] saveSchool called | school: " + (school != null ? school.getName() : "null"));
         if (school == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "School details cannot be null.");
         }
@@ -1240,13 +1243,13 @@ public class AcademicService {
             );
         }
 
-        System.out.println("[AcademicService] School saved successfully with id: " + saved.getId());
+        log.debug("[AcademicService] School saved successfully with id: " + saved.getId());
         return saved;
     }
 
     @Transactional
     public School updateSchool(String id, School school) {
-        System.out.println("[AcademicService] updateSchool called | id: " + id + " | school: " + (school != null ? school.getName() : "null"));
+        log.debug("[AcademicService] updateSchool called | id: " + id + " | school: " + (school != null ? school.getName() : "null"));
         enforceSchoolScope(id);
         School existing = schoolRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("School not found with id: " + id));
@@ -1308,7 +1311,7 @@ public class AcademicService {
             );
         }
 
-        System.out.println("[AcademicService] School updated successfully for id: " + updated.getId());
+        log.debug("[AcademicService] School updated successfully for id: " + updated.getId());
         return updated;
     }
 
@@ -1362,7 +1365,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public Department getDepartmentById(String id) {
-        System.out.println("[AcademicService] getDepartmentById called | id: " + id);
+        log.debug("[AcademicService] getDepartmentById called | id: " + id);
         Department dept = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
         enforceSchoolScope(dept.getSchoolId());
@@ -1372,7 +1375,7 @@ public class AcademicService {
 
     @Transactional
     public Department saveDepartment(Department department) {
-        System.out.println("[AcademicService] saveDepartment called | department: " + (department != null ? department.getName() : "null"));
+        log.debug("[AcademicService] saveDepartment called | department: " + (department != null ? department.getName() : "null"));
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isDirector()) {
             department.setSchoolId(scope.getRequiredSchoolId());
@@ -1390,7 +1393,10 @@ public class AcademicService {
         if (auditLogService != null) {
             auditLogService.recordSuccess(isNewDept ? com.dypiu.nba.audit.AuditAction.CREATE : com.dypiu.nba.audit.AuditAction.UPDATE, com.dypiu.nba.audit.ResourceType.DEPARTMENT, saved.getId(), null, "ACTIVE", isNewDept ? "Created Department" : "Updated Department", java.util.Map.of("code", saved.getCode() != null ? saved.getCode() : "", "name", saved.getName() != null ? saved.getName() : ""));
         }
-        System.out.println("[AcademicService] Saved department with id: " + saved.getId());
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictDepartmentCache();
+        }
+        log.debug("[AcademicService] Saved department with id: " + saved.getId());
 
         // Sync department info to HOD user if hodEmail or hod name matches
         if (saved.getHodEmail() != null && !saved.getHodEmail().isBlank()) {
@@ -1401,7 +1407,7 @@ public class AcademicService {
                     user.setSchoolId(saved.getSchoolId());
                 }
                 userRepository.save(user);
-                System.out.println("[AcademicService] Updated HOD user (" + user.getEmail() + ") department to: " + saved.getName());
+                log.debug("[AcademicService] Updated HOD user (" + user.getEmail() + ") department to: " + saved.getName());
             });
         }
         return saved;
@@ -1409,13 +1415,16 @@ public class AcademicService {
 
     @Transactional
     public void deleteDepartment(String id) {
-        System.out.println("[AcademicService] deleteDepartment called | id: " + id);
+        log.debug("[AcademicService] deleteDepartment called | id: " + id);
         Department dept = departmentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Department not found with id: " + id));
         enforceSchoolScope(dept.getSchoolId());
         enforceDepartmentScope(dept.getId());
         departmentRepository.deleteById(id);
-        System.out.println("[AcademicService] Deleted department with id: " + id);
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictDepartmentCache();
+        }
+        log.debug("[AcademicService] Deleted department with id: " + id);
     }
 
     // --- Users by Role ---
@@ -1426,7 +1435,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public List<UserDto> getUsersByRole(String role, String departmentId) {
-        System.out.println("[AcademicService] getUsersByRole called | role: " + role + " | departmentId: " + departmentId);
+        log.debug("[AcademicService] getUsersByRole called | role: " + role + " | departmentId: " + departmentId);
         CurrentUserScope scope = getScope();
         List<User> users;
 
@@ -1512,7 +1521,7 @@ public class AcademicService {
                 })
                 .toList();
 
-        System.out.println("[AcademicService] Fetched users by role (" + role + "): count=" + dtos.size());
+        log.debug("[AcademicService] Fetched users by role (" + role + "): count=" + dtos.size());
         return dtos;
     }
 
@@ -1605,7 +1614,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public CourseCoordinatorSummaryDto getCourseCoordinatorSummary(String coordinatorEmail, String selectedCourseOrOfferingId) {
-        System.out.println("[AcademicService] getCourseCoordinatorSummary called | coordinatorEmail: " + coordinatorEmail + " | selectedCourseOrOfferingId: " + selectedCourseOrOfferingId);
+        log.debug("[AcademicService] getCourseCoordinatorSummary called | coordinatorEmail: " + coordinatorEmail + " | selectedCourseOrOfferingId: " + selectedCourseOrOfferingId);
         CurrentUserScope scope = getScope();
         String name = scope != null && scope.getName() != null ? scope.getName() : "Course Coordinator";
         String email = scope != null && scope.getEmail() != null ? scope.getEmail() : (coordinatorEmail != null ? coordinatorEmail.trim() : "");
@@ -1774,7 +1783,7 @@ public class AcademicService {
             }
         }
         String targetMasterCourseId = resolveTargetMasterCourseId(targetId);
-        System.out.println("[AcademicService] getCourseCoordinatorSetupProgress called | masterCourseId: " + masterCourseIdOrOfferingId + " | batch: " + programmeBatchId + " -> targetMasterCourseId: " + targetMasterCourseId);
+        log.debug("[AcademicService] getCourseCoordinatorSetupProgress called | masterCourseId: " + masterCourseIdOrOfferingId + " | batch: " + programmeBatchId + " -> targetMasterCourseId: " + targetMasterCourseId);
         if (targetMasterCourseId != null && !targetMasterCourseId.isBlank()) {
             if (programmeBatchCourseRepository.existsById(targetMasterCourseId)) {
                 enforceProgrammeBatchCourseScope(targetMasterCourseId);
@@ -1873,7 +1882,7 @@ public class AcademicService {
         }
         String targetMasterCourseId = effectiveMasterCourseId.trim();
 
-        System.out.println("[AcademicService] updateCourseCoordinatorSetupProgress called | courseId: " + targetMasterCourseId + " | stepNumber: " + effectiveStep);
+        log.debug("[AcademicService] updateCourseCoordinatorSetupProgress called | courseId: " + targetMasterCourseId + " | stepNumber: " + effectiveStep);
         if (programmeBatchCourseRepository.existsById(targetMasterCourseId)) {
             enforceProgrammeBatchCourseScope(targetMasterCourseId);
         }
@@ -1943,7 +1952,7 @@ public class AcademicService {
         }
         String targetMasterCourseId = effectiveMasterCourseId.trim();
 
-        System.out.println("[AcademicService] completeCourseCoordinatorSetup called | courseId: " + targetMasterCourseId);
+        log.debug("[AcademicService] completeCourseCoordinatorSetup called | courseId: " + targetMasterCourseId);
         if (programmeBatchCourseRepository.existsById(targetMasterCourseId)) {
             enforceProgrammeBatchCourseScope(targetMasterCourseId);
             enforceCourseCoordinatorScope(targetMasterCourseId);
@@ -1971,7 +1980,7 @@ public class AcademicService {
     // --- Programmes ---
     @Transactional(readOnly = true)
     public List<MasterProgramme> getAllProgrammes() {
-        System.out.println("[AcademicService] getAllProgrammes called");
+        log.debug("[AcademicService] getAllProgrammes called");
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isDirector()) {
             return getProgrammesBySchool(scope.getRequiredSchoolId());
@@ -2020,13 +2029,13 @@ public class AcademicService {
         }
         List<MasterProgramme> list = masterProgrammeRepository.findByDeletedAtIsNull();
         list.forEach(this::enrichProgrammeCoordinator);
-        System.out.println("[AcademicService] Fetched all programmes (" + list.size() + " items)");
+        log.debug("[AcademicService] Fetched all programmes (" + list.size() + " items)");
         return list;
     }
 
     @Transactional(readOnly = true)
     public MasterProgramme getProgrammeById(String id) {
-        System.out.println("[AcademicService] getProgrammeById called | id: " + id);
+        log.debug("[AcademicService] getProgrammeById called | id: " + id);
         if (id == null || id.isBlank()) return null;
         MasterProgramme p = masterProgrammeRepository.findByIdAndDeletedAtIsNull(id).orElse(null);
         if (p == null) return null;
@@ -2037,7 +2046,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public List<MasterProgramme> getProgrammesByCoordinatorEmail(String coordinatorEmail) {
-        System.out.println("[AcademicService] getProgrammesByCoordinatorEmail called | coordinatorEmail: " + coordinatorEmail);
+        log.debug("[AcademicService] getProgrammesByCoordinatorEmail called | coordinatorEmail: " + coordinatorEmail);
         CurrentUserScope scope = getScope();
         String effectiveEmail = (coordinatorEmail != null && !coordinatorEmail.isBlank())
                 ? coordinatorEmail.trim().toLowerCase()
@@ -2066,7 +2075,7 @@ public class AcademicService {
         if (!masterProgrammeIds.isEmpty()) {
             List<MasterProgramme> programmes = masterProgrammeRepository.findByIdInAndDeletedAtIsNull(masterProgrammeIds);
             programmes.forEach(this::enrichProgrammeCoordinator);
-            System.out.println("[AcademicService] Found " + programmes.size() + " unique master-programmes for coordinatorEmail: " + effectiveEmail);
+            log.debug("[AcademicService] Found " + programmes.size() + " unique master-programmes for coordinatorEmail: " + effectiveEmail);
             return programmes;
         }
 
@@ -2076,7 +2085,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public List<MasterProgramme> getProgrammesBySchool(String schoolId) {
-        System.out.println("[AcademicService] getProgrammesBySchool called | schoolId: " + schoolId);
+        log.debug("[AcademicService] getProgrammesBySchool called | schoolId: " + schoolId);
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isDirector()) {
             String dirSchoolId = scope.getRequiredSchoolId();
@@ -2099,13 +2108,13 @@ public class AcademicService {
         List<String> deptIds = depts.stream().map(Department::getId).toList();
         List<MasterProgramme> list = masterProgrammeRepository.findByDepartmentIdInAndDeletedAtIsNull(deptIds);
         list.forEach(this::enrichProgrammeCoordinator);
-        System.out.println("[AcademicService] Fetched programmes (" + list.size() + " items) for schoolId: " + schoolId);
+        log.debug("[AcademicService] Fetched programmes (" + list.size() + " items) for schoolId: " + schoolId);
         return list;
     }
 
     @Transactional(readOnly = true)
     public List<MasterProgramme> getProgrammesByDepartment(String departmentId) {
-        System.out.println("[AcademicService] getProgrammesByDepartment called | departmentId: " + departmentId);
+        log.debug("[AcademicService] getProgrammesByDepartment called | departmentId: " + departmentId);
         CurrentUserScope scope = getScope();
         if (departmentId == null || departmentId.isBlank()) {
             return getAllProgrammes();
@@ -2116,13 +2125,13 @@ public class AcademicService {
         }
         List<MasterProgramme> list = masterProgrammeRepository.findByDepartmentIdAndDeletedAtIsNull(departmentId);
         list.forEach(this::enrichProgrammeCoordinator);
-        System.out.println("[AcademicService] Fetched programmes (" + list.size() + " items) for departmentId: " + departmentId);
+        log.debug("[AcademicService] Fetched programmes (" + list.size() + " items) for departmentId: " + departmentId);
         return list;
     }
 
     @Transactional
     public MasterProgramme saveProgramme(MasterProgramme programme) {
-        System.out.println("[AcademicService] saveMasterProgramme called | id: " + (programme != null ? programme.getId() : "null") + " | name: " + (programme != null ? programme.getName() : "null") + " | coordinator: " + (programme != null ? programme.getCoordinator() : "null") + " | coordinatorEmail: " + (programme != null ? programme.getCoordinatorEmail() : "null"));
+        log.debug("[AcademicService] saveMasterProgramme called | id: " + (programme != null ? programme.getId() : "null") + " | name: " + (programme != null ? programme.getName() : "null") + " | coordinator: " + (programme != null ? programme.getCoordinator() : "null") + " | coordinatorEmail: " + (programme != null ? programme.getCoordinatorEmail() : "null"));
         if (programme == null) return null;
 
         if (programme.getId() != null) {
@@ -2213,7 +2222,7 @@ public class AcademicService {
                     user.setRole(UserRole.PROGRAMME_COORDINATOR);
                 }
                 userRepository.save(user);
-                System.out.println("[AcademicService] Synchronized user " + user.getEmail() + " as PC for programme " + finalProg.getName());
+                log.debug("[AcademicService] Synchronized user " + user.getEmail() + " as PC for programme " + finalProg.getName());
             }
         }
 
@@ -2222,13 +2231,16 @@ public class AcademicService {
         if (auditLogService != null) {
             auditLogService.recordSuccess(isNewProg ? com.dypiu.nba.audit.AuditAction.CREATE : com.dypiu.nba.audit.AuditAction.UPDATE, com.dypiu.nba.audit.ResourceType.MASTER_PROGRAMME, saved.getId(), null, "ACTIVE", isNewProg ? "Created MasterProgramme" : "Updated MasterProgramme", java.util.Map.of("degreeAwarded", saved.getDegreeAwarded() != null ? saved.getDegreeAwarded() : "", "name", saved.getName() != null ? saved.getName() : ""));
         }
-        System.out.println("[AcademicService] Saved programme with id: " + saved.getId() + ", coordinator: " + saved.getCoordinator() + ", coordinatorEmail: " + saved.getCoordinatorEmail());
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictMasterProgrammeCache();
+        }
+        log.debug("[AcademicService] Saved programme with id: " + saved.getId() + ", coordinator: " + saved.getCoordinator() + ", coordinatorEmail: " + saved.getCoordinatorEmail());
         return saved;
     }
 
     @Transactional
     public void deleteProgramme(String id) {
-        System.out.println("[AcademicService] deleteMasterProgramme called | id: " + id);
+        log.debug("[AcademicService] deleteMasterProgramme called | id: " + id);
         enforceProgrammeScope(id);
         MasterProgramme existing = masterProgrammeRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "MasterProgramme not found: " + id));
@@ -2240,6 +2252,10 @@ public class AcademicService {
         existing.setDeletedBy(deletedBy);
         
         masterProgrammeRepository.save(existing);
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictMasterProgrammeCache();
+            academicLookupCacheService.evictProgrammeBatchCache();
+        }
         
         // Soft delete all active child batches
         List<ProgrammeBatch> batches = programmeBatchRepository.findByMasterProgrammeId(id);
@@ -2274,7 +2290,7 @@ public class AcademicService {
                     java.util.Map.of("degreeAwarded", existing.getDegreeAwarded() != null ? existing.getDegreeAwarded() : "")
             );
         }
-        System.out.println("[AcademicService] Soft-deleted programme with id: " + id);
+        log.debug("[AcademicService] Soft-deleted programme with id: " + id);
     }
 
     // --- Batches ---
@@ -2697,6 +2713,9 @@ public class AcademicService {
         if (auditLogService != null) {
             auditLogService.recordSuccess(isNewBatch ? com.dypiu.nba.audit.AuditAction.CREATE : com.dypiu.nba.audit.AuditAction.UPDATE, com.dypiu.nba.audit.ResourceType.PROGRAMME_BATCH, saved.getId(), null, "ACTIVE", isNewBatch ? "Created ProgrammeBatch" : "Updated ProgrammeBatch", java.util.Map.of("name", saved.getName() != null ? saved.getName() : ""));
         }
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictProgrammeBatchCache();
+        }
         return saved;
     }
 
@@ -2709,12 +2728,15 @@ public class AcademicService {
         batch.setDeletedAt(ZonedDateTime.now());
         batch.setDeletedBy(scope != null ? (scope.getEmail() != null ? scope.getEmail() : scope.getUsername()) : "SYSTEM");
         programmeBatchRepository.save(batch);
+        if (academicLookupCacheService != null) {
+            academicLookupCacheService.evictProgrammeBatchCache();
+        }
     }
 
     // --- Courses ---
     @Transactional(readOnly = true)
     public List<ProgrammeBatchCourse> getAllCourses() {
-        System.out.println("[AcademicService] getAllCourses called");
+        log.debug("[AcademicService] getAllCourses called");
         CurrentUserScope scope = getScope();
         List<ProgrammeBatchCourse> all = programmeBatchCourseRepository.findAll().stream()
                 .filter(c -> c.getDeletedAt() == null)
@@ -2751,7 +2773,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public ProgrammeBatchCourse getCourseById(String id) {
-        System.out.println("[AcademicService] getCourseById called | id: " + id);
+        log.debug("[AcademicService] getCourseById called | id: " + id);
         ProgrammeBatchCourse course = programmeBatchCourseRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found with id: " + id));
         enforceProgrammeBatchCourseScope(id);
@@ -2760,7 +2782,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public List<ProgrammeBatchCourse> getCoursesByProgramme(String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[AcademicService] getCoursesByMasterProgramme called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] getCoursesByMasterProgramme called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         enforceProgrammeScope(masterProgrammeId);
         List<ProgrammeBatchCourse> list;
         if (programmeBatchId != null && !programmeBatchId.isBlank()) {
@@ -2784,7 +2806,7 @@ public class AcademicService {
 
     @Transactional
     public ProgrammeBatchCourse saveCourse(ProgrammeBatchCourse course) {
-        System.out.println("[AcademicService] saveCourse called | name: " + (course != null ? course.getName() : "null"));
+        log.debug("[AcademicService] saveCourse called | name: " + (course != null ? course.getName() : "null"));
         if (course == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Course details cannot be null.");
         }
@@ -2801,31 +2823,31 @@ public class AcademicService {
         if (auditLogService != null) {
             auditLogService.recordSuccess(isNewCourse ? com.dypiu.nba.audit.AuditAction.CREATE : com.dypiu.nba.audit.AuditAction.UPDATE, com.dypiu.nba.audit.ResourceType.PROGRAMME_BATCH_COURSE, saved.getId(), null, "ACTIVE", isNewCourse ? "Created Course" : "Updated Course", java.util.Map.of("code", saved.getCode() != null ? saved.getCode() : "", "name", saved.getName() != null ? saved.getName() : ""));
         }
-        System.out.println("[AcademicService] Saved course with id: " + saved.getId());
+        log.debug("[AcademicService] Saved course with id: " + saved.getId());
         return enrichOffering(saved);
     }
 
     @Transactional
     public void deleteCourse(String id) {
-        System.out.println("[AcademicService] deleteCourse called | id: " + id);
+        log.debug("[AcademicService] deleteCourse called | id: " + id);
         deleteProgrammeBatchCourse(id);
     }
 
     // --- Students ---
     @Transactional(readOnly = true)
     public List<Student> getStudentsByBatch(String programmeBatchId) {
-        System.out.println("[AcademicService] getStudentsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] getStudentsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
         if (programmeBatchId != null && !programmeBatchId.isBlank()) {
             enforceBatchScope(programmeBatchId);
         }
         List<Student> list = studentRepository.findByProgrammeBatchId(programmeBatchId);
-        System.out.println("[AcademicService] Fetched students (" + list.size() + " items) for programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] Fetched students (" + list.size() + " items) for programmeBatchId: " + programmeBatchId);
         return list;
     }
 
     @Transactional
     public Student saveStudent(Student student) {
-        System.out.println("[AcademicService] saveStudent called | name: " + (student != null ? student.getName() : "null"));
+        log.debug("[AcademicService] saveStudent called | name: " + (student != null ? student.getName() : "null"));
         if (student == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Student details cannot be null.");
         }
@@ -2840,20 +2862,20 @@ public class AcademicService {
         }
         if (student.getId() == null) student.setId("std-" + UUID.randomUUID().toString().substring(0, 8));
         Student saved = studentRepository.save(student);
-        System.out.println("[AcademicService] Saved student with id: " + saved.getId());
+        log.debug("[AcademicService] Saved student with id: " + saved.getId());
         return saved;
     }
 
     @Transactional
     public void deleteStudent(String id) {
-        System.out.println("[AcademicService] deleteStudent called | id: " + id);
+        log.debug("[AcademicService] deleteStudent called | id: " + id);
         Student student = studentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Student not found with id: " + id));
         if (student.getProgrammeBatchId() != null) {
             enforceBatchScope(student.getProgrammeBatchId());
         }
         studentRepository.deleteById(id);
-        System.out.println("[AcademicService] Deleted student with id: " + id);
+        log.debug("[AcademicService] Deleted student with id: " + id);
     }
 
     // --- HOD Department Summary ---
@@ -2864,7 +2886,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public HodDepartmentSummaryDto getHodDepartmentSummary(String departmentId, String hodEmail) {
-        System.out.println("[AcademicService] getHodDepartmentSummary called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
+        log.debug("[AcademicService] getHodDepartmentSummary called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
         CurrentUserScope scope = getScope();
         if (departmentId != null && !departmentId.isBlank() && !departmentId.equals("dept-1")) {
             enforceDepartmentScope(departmentId.trim());
@@ -2932,7 +2954,7 @@ public class AcademicService {
         }
 
         HodSetupProgressDto progressDto = getHodSetupProgress(deptId, resolvedHodEmail);
-        System.out.println("[AcademicService] Fetched HOD department summary for deptId: " + deptId + " (" + deptName + ") | hodEmail: " + resolvedHodEmail);
+        log.debug("[AcademicService] Fetched HOD department summary for deptId: " + deptId + " (" + deptName + ") | hodEmail: " + resolvedHodEmail);
 
         return HodDepartmentSummaryDto.builder()
                 .deptId(deptId)
@@ -2979,7 +3001,7 @@ public class AcademicService {
     public HodSetupProgressDto getHodSetupProgress(
             String departmentId,
             String hodEmail) {
-        System.out.println("[AcademicService] getHodSetupProgress called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
+        log.debug("[AcademicService] getHodSetupProgress called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
         if (departmentId != null && !departmentId.isBlank() && !departmentId.equals("dept-1")) {
             enforceDepartmentScope(departmentId.trim());
         }
@@ -3013,7 +3035,7 @@ public class AcademicService {
             String completedStep,
             List<String> completedStepsList,
             String hodEmail) {
-        System.out.println("[AcademicService] updateHodSetupProgress called | departmentId: " + departmentId + " | targetStep: " + targetStep + " | completedStep: " + completedStep + " | completedStepsList: " + completedStepsList + " | hodEmail: " + hodEmail);
+        log.debug("[AcademicService] updateHodSetupProgress called | departmentId: " + departmentId + " | targetStep: " + targetStep + " | completedStep: " + completedStep + " | completedStepsList: " + completedStepsList + " | hodEmail: " + hodEmail);
         if (departmentId != null && !departmentId.isBlank() && !departmentId.equals("dept-1")) {
             enforceDepartmentScope(departmentId.trim());
         }
@@ -3085,7 +3107,7 @@ public class AcademicService {
 
         hodSetupProgressRepository.save(progress);
 
-        System.out.println("[AcademicService] HOD setup progress updated | targetDeptId=" + targetDeptId + " | currentStep=" + currentStep + " | completed=" + completed + " | pending=" + pending);
+        log.debug("[AcademicService] HOD setup progress updated | targetDeptId=" + targetDeptId + " | currentStep=" + currentStep + " | completed=" + completed + " | pending=" + pending);
 
         return buildHodSetupProgressDto(progress);
     }
@@ -3171,7 +3193,7 @@ public class AcademicService {
     public HodSetupProgressDto completeHodSetup(
             String departmentId,
             String hodEmail) {
-        System.out.println("[AcademicService] completeHodSetup called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
+        log.debug("[AcademicService] completeHodSetup called | departmentId: " + departmentId + " | hodEmail: " + hodEmail);
 
         String targetDeptId = resolveTargetDeptId(departmentId, hodEmail);
         validateDepartmentId(targetDeptId);
@@ -3204,7 +3226,7 @@ public class AcademicService {
 
         hodSetupProgressRepository.save(progress);
 
-        System.out.println("[AcademicService] HOD setup marked as COMPLETED for targetDeptId: " + targetDeptId);
+        log.debug("[AcademicService] HOD setup marked as COMPLETED for targetDeptId: " + targetDeptId);
 
         return buildHodSetupProgressDto(progress);
     }
@@ -3253,7 +3275,7 @@ public class AcademicService {
     // --- MasterProgramme Coordinator Summary & Setup Progress ---
     @Transactional(readOnly = true)
     public ProgrammeCoordinatorSummaryDto getProgrammeCoordinatorSummary(String coordinatorEmail, String masterProgrammeId) {
-        System.out.println("[AcademicService] getProgrammeCoordinatorSummary called | coordinatorEmail: " + coordinatorEmail + " | masterProgrammeId: " + masterProgrammeId);
+        log.debug("[AcademicService] getProgrammeCoordinatorSummary called | coordinatorEmail: " + coordinatorEmail + " | masterProgrammeId: " + masterProgrammeId);
 
         String targetProgId = resolveTargetProgId(masterProgrammeId, coordinatorEmail);
         if (targetProgId == null || targetProgId.isBlank()) {
@@ -3319,7 +3341,7 @@ public class AcademicService {
 
     @Transactional(readOnly = true)
     public ProgrammeCoordinatorSetupProgressDto getProgrammeCoordinatorSetupProgress(String coordinatorEmail, String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[AcademicService] getProgrammeCoordinatorSetupProgress called | coordinatorEmail: " + coordinatorEmail + " | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AcademicService] getProgrammeCoordinatorSetupProgress called | coordinatorEmail: " + coordinatorEmail + " | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
 
         String targetProgId = resolveTargetProgId(masterProgrammeId, coordinatorEmail);
         if (targetProgId == null || targetProgId.isBlank()) {
@@ -3371,7 +3393,7 @@ public class AcademicService {
     @Transactional
     public ProgrammeCoordinatorSetupProgressDto updateProgrammeCoordinatorSetupProgress(
             String coordinatorEmail, String masterProgrammeId, String programmeBatchId, Integer stepNumber, Map<String, Object> body) {
-        System.out.println("[AcademicService] updateProgrammeCoordinatorSetupProgress called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId + " | stepNumber: " + stepNumber + " | coordinatorEmail: " + coordinatorEmail);
+        log.debug("[AcademicService] updateProgrammeCoordinatorSetupProgress called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId + " | stepNumber: " + stepNumber + " | coordinatorEmail: " + coordinatorEmail);
 
         String targetProgId = resolveTargetProgId(masterProgrammeId, coordinatorEmail);
         if (targetProgId == null || targetProgId.isBlank()) {
@@ -3512,7 +3534,7 @@ public class AcademicService {
 
     @Transactional
     public ProgrammeCoordinatorSetupProgressDto completeProgrammeCoordinatorSetup(String coordinatorEmail, String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[AcademicService] completeProgrammeCoordinatorSetup called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId + " | coordinatorEmail: " + coordinatorEmail);
+        log.debug("[AcademicService] completeProgrammeCoordinatorSetup called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId + " | coordinatorEmail: " + coordinatorEmail);
         Map<String, Object> body = Map.of("completedSteps", List.of("courses", "po_pso_target", "indirect_attainment", "programme_atr", "review"));
         return updateProgrammeCoordinatorSetupProgress(coordinatorEmail, masterProgrammeId, programmeBatchId, 1, body);
     }
@@ -4233,7 +4255,9 @@ public class AcademicService {
         if (masterProgrammeId == null || masterProgrammeId.isBlank()) return false;
         String clean = masterProgrammeId.trim();
         String progId = clean.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
-        return approvalRequestRepository.findAll().stream()
+        List<ApprovalType> types = List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING);
+        List<ApprovalRequest> requests = approvalRequestRepository.findAllocationApprovals(types, clean, "allocation-" + progId, progId);
+        return requests.stream()
                 .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
                         && (clean.equalsIgnoreCase(a.getResourceId())
                         || ("allocation-" + progId).equalsIgnoreCase(a.getResourceId())

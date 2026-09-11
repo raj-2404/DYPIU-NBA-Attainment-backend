@@ -1,4 +1,5 @@
 package com.dypiu.nba.service;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.entity.*;
 import com.dypiu.nba.repository.*;
@@ -20,6 +21,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OutcomeService {
@@ -265,7 +267,9 @@ public class OutcomeService {
         if (offering == null) return false;
         if (offering.getProgrammeBatchId() != null && offering.getSemester() != null) {
             String semKey = "allocation-" + offering.getProgrammeBatchId().trim() + "-sem-" + offering.getSemester();
-            boolean semApproved = approvalRequestRepository.findAll().stream()
+            List<ApprovalType> types = List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING);
+            List<ApprovalRequest> requests = approvalRequestRepository.findAllocationApprovals(types, semKey, semKey, offering.getProgrammeBatchId());
+            boolean semApproved = requests.stream()
                     .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (semKey.equalsIgnoreCase(a.getResourceId()) || semKey.equalsIgnoreCase(a.getProgrammeBatchId())))
                     .max(LATEST_APPROVAL_COMPARATOR)
                     .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
@@ -281,7 +285,9 @@ public class OutcomeService {
         }
         if (progId == null || progId.isBlank()) return false;
         final String targetProgId = progId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
-        return approvalRequestRepository.findAll().stream()
+        List<ApprovalType> types = List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING);
+        List<ApprovalRequest> requests = approvalRequestRepository.findAllocationApprovals(types, targetProgId, "allocation-" + targetProgId, targetProgId);
+        return requests.stream()
                 .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
                         && (targetProgId.equalsIgnoreCase(a.getMasterProgrammeId())
                         || ("allocation-" + targetProgId).equalsIgnoreCase(a.getResourceId())
@@ -399,7 +405,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public List<ProgrammeOutcome> getPOsByProgramme(String programmeOrProgrammeBatchId) {
-        System.out.println("[OutcomeService] getPOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] getPOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -417,7 +423,7 @@ public class OutcomeService {
 
     @Transactional
     public List<ProgrammeOutcome> savePOs(String programmeOrProgrammeBatchId, List<ProgrammeOutcome> pos) {
-        System.out.println("[OutcomeService] savePOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (pos != null ? pos.size() : 0));
+        log.debug("[OutcomeService] savePOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (pos != null ? pos.size() : 0));
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -523,7 +529,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public List<ProgrammeSpecificOutcome> getPSOsByProgramme(String programmeOrProgrammeBatchId) {
-        System.out.println("[OutcomeService] getPSOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] getPSOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -541,7 +547,7 @@ public class OutcomeService {
 
     @Transactional
     public List<ProgrammeSpecificOutcome> savePSOs(String programmeOrProgrammeBatchId, List<ProgrammeSpecificOutcome> psos) {
-        System.out.println("[OutcomeService] savePSOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (psos != null ? psos.size() : 0));
+        log.debug("[OutcomeService] savePSOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (psos != null ? psos.size() : 0));
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -646,7 +652,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public List<PeoOutcome> getPEOsByProgramme(String programmeOrProgrammeBatchId) {
-        System.out.println("[OutcomeService] getPEOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] getPEOsByProgramme called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -659,7 +665,7 @@ public class OutcomeService {
 
     @Transactional
     public List<PeoOutcome> savePEOs(String programmeOrProgrammeBatchId, List<PeoOutcome> peos) {
-        System.out.println("[OutcomeService] savePEOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (peos != null ? peos.size() : 0));
+        log.debug("[OutcomeService] savePEOs called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId + " | count: " + (peos != null ? peos.size() : 0));
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -733,7 +739,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public List<CourseOutcome> getCOsByCourse(String masterCourseIdOrOfferingId) {
-        System.out.println("[OutcomeService] getCOsByCourse called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
+        log.debug("[OutcomeService] getCOsByCourse called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
         if (masterCourseIdOrOfferingId != null && !masterCourseIdOrOfferingId.isBlank()) {
             enforceCourseOrOfferingScope(masterCourseIdOrOfferingId);
         }
@@ -756,7 +762,7 @@ public class OutcomeService {
 
     @Transactional
     public List<CourseOutcome> saveCOs(String masterCourseIdOrOfferingId, List<CourseOutcome> cos) {
-        System.out.println("[OutcomeService] saveCOs called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId + " | count: " + (cos != null ? cos.size() : 0));
+        log.debug("[OutcomeService] saveCOs called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId + " | count: " + (cos != null ? cos.size() : 0));
         if (masterCourseIdOrOfferingId != null && !masterCourseIdOrOfferingId.isBlank()) {
             enforceCourseOrOfferingScope(masterCourseIdOrOfferingId);
             enforceCourseCoordinatorMutation(masterCourseIdOrOfferingId);
@@ -839,7 +845,7 @@ public class OutcomeService {
 
     @Transactional
     public void deleteCourseOutcome(String masterCourseIdOrOfferingId, String coId) {
-        System.out.println("[OutcomeService] deleteCourseOutcome called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId + " | coId: " + coId);
+        log.debug("[OutcomeService] deleteCourseOutcome called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId + " | coId: " + coId);
         if (masterCourseIdOrOfferingId != null && !masterCourseIdOrOfferingId.isBlank()) {
             enforceCourseOrOfferingScope(masterCourseIdOrOfferingId);
             enforceCourseCoordinatorMutation(masterCourseIdOrOfferingId);
@@ -862,7 +868,7 @@ public class OutcomeService {
     // --- Programme Target Benchmark Levels ---
     @Transactional(readOnly = true)
     public ProgrammeTargetDto getProgrammeTargets(String programmeOrProgrammeBatchId) {
-        System.out.println("[OutcomeService] getProgrammeTargets called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] getProgrammeTargets called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String programmeBatchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
@@ -905,7 +911,7 @@ public class OutcomeService {
 
     @Transactional
     public ProgrammeTargetDto saveProgrammeTargets(String programmeOrProgrammeBatchId, ProgrammeTargetDto dto) {
-        System.out.println("[OutcomeService] saveProgrammeTargets called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] saveProgrammeTargets called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         enforceProgrammeCoordinatorMutation(programmeOrProgrammeBatchId);
         if (approvalService != null && approvalService.isPoPsoTargetsApproved(programmeOrProgrammeBatchId)) {
@@ -999,7 +1005,7 @@ public class OutcomeService {
 
     @Transactional
     public CourseMappingMatrixDto getCourseMappings(String masterCourseIdOrOfferingId) {
-        System.out.println("[OutcomeService] getCourseMappings called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
+        log.debug("[OutcomeService] getCourseMappings called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
         if (masterCourseIdOrOfferingId != null && !masterCourseIdOrOfferingId.isBlank()) {
             enforceCourseOrOfferingScope(masterCourseIdOrOfferingId);
         }
@@ -1103,7 +1109,7 @@ public class OutcomeService {
 
     @Transactional
     public CourseMappingMatrixDto saveCourseMappings(String masterCourseIdOrOfferingId, CourseMappingMatrixDto dto) {
-        System.out.println("[OutcomeService] saveCourseMappings called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
+        log.debug("[OutcomeService] saveCourseMappings called | masterCourseIdOrOfferingId: " + masterCourseIdOrOfferingId);
         if (masterCourseIdOrOfferingId != null && !masterCourseIdOrOfferingId.isBlank()) {
             enforceCourseOrOfferingScope(masterCourseIdOrOfferingId);
             enforceCourseCoordinatorMutation(masterCourseIdOrOfferingId);
@@ -1239,7 +1245,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public List<CourseOutcome> getOutcomesByOffering(String offeringId) {
-        System.out.println("[OutcomeService] getOutcomesByOffering called | offeringId: " + offeringId);
+        log.debug("[OutcomeService] getOutcomesByOffering called | offeringId: " + offeringId);
         if (offeringId != null && !offeringId.isBlank()) {
             enforceOfferingScope(offeringId);
         }
@@ -1250,7 +1256,7 @@ public class OutcomeService {
 
     @Transactional
     public List<CourseOutcome> saveOutcomesByOffering(String offeringId, List<CourseOutcome> cos) {
-        System.out.println("[OutcomeService] saveOutcomesByOffering called | offeringId: " + offeringId);
+        log.debug("[OutcomeService] saveOutcomesByOffering called | offeringId: " + offeringId);
         if (offeringId != null && !offeringId.isBlank()) {
             enforceOfferingScope(offeringId);
         }
@@ -1261,7 +1267,7 @@ public class OutcomeService {
 
     @Transactional
     public CourseMappingMatrixDto getMappingsByOffering(String offeringId) {
-        System.out.println("[OutcomeService] getMappingsByOffering called | offeringId: " + offeringId);
+        log.debug("[OutcomeService] getMappingsByOffering called | offeringId: " + offeringId);
         if (offeringId != null && !offeringId.isBlank()) {
             enforceOfferingScope(offeringId);
         }
@@ -1272,7 +1278,7 @@ public class OutcomeService {
 
     @Transactional
     public CourseMappingMatrixDto saveMappingsByOffering(String offeringId, CourseMappingMatrixDto dto) {
-        System.out.println("[OutcomeService] saveMappingsByOffering called | offeringId: " + offeringId);
+        log.debug("[OutcomeService] saveMappingsByOffering called | offeringId: " + offeringId);
         if (offeringId != null && !offeringId.isBlank()) {
             enforceOfferingScope(offeringId);
         }
@@ -1285,7 +1291,7 @@ public class OutcomeService {
 
     @Transactional(readOnly = true)
     public com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto getProgrammeBatchOutcomeBundle(String programmeOrProgrammeBatchId) {
-        System.out.println("[OutcomeService] getProgrammeBatchOutcomeBundle called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] getProgrammeBatchOutcomeBundle called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         String batchId = resolveProgrammeBatchId(programmeOrProgrammeBatchId);
         ProgrammeBatch batch = (batchId != null) ? programmeBatchRepository.findById(batchId).orElse(null) : null;
@@ -1363,7 +1369,7 @@ public class OutcomeService {
 
     @Transactional
     public com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto saveProgrammeBatchOutcomeBundle(String programmeOrProgrammeBatchId, com.dypiu.nba.dto.ProgrammeBatchOutcomeBundleDto bundle) {
-        System.out.println("[OutcomeService] saveProgrammeBatchOutcomeBundle called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
+        log.debug("[OutcomeService] saveProgrammeBatchOutcomeBundle called | programmeOrProgrammeBatchId: " + programmeOrProgrammeBatchId);
         enforceBatchOrProgrammeScope(programmeOrProgrammeBatchId);
         enforceProgrammeCoordinatorMutation(programmeOrProgrammeBatchId);
         String batchId = (bundle != null && bundle.getProgrammeBatchId() != null && !bundle.getProgrammeBatchId().isBlank())

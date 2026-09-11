@@ -42,6 +42,9 @@ public class SchoolDirectorMappingTest {
     @Mock
     private DepartmentRepository departmentRepository;
 
+    @Mock
+    private AcademicLookupCacheService academicLookupCacheService;
+
     @InjectMocks
     private AcademicService academicService;
 

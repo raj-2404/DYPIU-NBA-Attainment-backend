@@ -2,27 +2,44 @@ server:
   port: ${SERVER_PORT:8010}
   address: ${SERVER_ADDRESS:0.0.0.0}
   forward-headers-strategy: framework
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain,text/xml,text/css,application/javascript
+    min-response-size: 1024
   servlet:
     context-path: /api/v1
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/dypiu_obe_db}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD}
     driver-class-name: ${DATABASE_DRIVER:org.postgresql.Driver}
     hikari:
-      maximum-pool-size: ${DB_POOL_SIZE:20}
-      minimum-idle: 5
+      maximum-pool-size: ${DB_POOL_SIZE:15}
+      minimum-idle: ${DB_MIN_IDLE:5}
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1200000
+      leak-detection-threshold: ${DB_LEAK_DETECTION_THRESHOLD:60000}
+      data-source-properties:
+        reWriteBatchedInserts: true
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: ${HIBERNATE_DDL_AUTO:validate} # Strictly validate schema against Flyway migrations
     show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+          batch_versioned_data: true
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: ${FLYWAY_ENABLED:true}

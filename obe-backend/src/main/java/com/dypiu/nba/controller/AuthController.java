@@ -1,4 +1,5 @@
 package com.dypiu.nba.controller;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.dto.*;
 import com.dypiu.nba.service.AuthService;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/auth")
 @RequiredArgsConstructor
@@ -19,7 +21,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
-        System.out.println("Logged In");
+        log.debug("Logged In");
         return ResponseEntity.ok(ApiResponse.<AuthResponse>builder()
                 .success(true)
                 .message("Login successful")

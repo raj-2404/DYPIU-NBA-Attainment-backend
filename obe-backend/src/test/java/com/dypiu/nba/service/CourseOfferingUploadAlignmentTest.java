@@ -19,6 +19,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -127,7 +128,7 @@ public class CourseOfferingUploadAlignmentTest {
     void testUploadMarks_CorrectBatch_Success() {
         when(programmeBatchCourseRepository.existsById("offering-cs301-2025")).thenReturn(true);
         when(programmeBatchCourseRepository.findById("offering-cs301-2025")).thenReturn(Optional.of(offering2025));
-        when(studentRepository.findByPrn("PRN-2025-001")).thenReturn(Optional.of(student2025));
+        when(studentRepository.findByPrnIn(any())).thenReturn(List.of(student2025));
 
         StudentMarksRowDto row = StudentMarksRowDto.builder()
                 .srNo(1)
@@ -151,7 +152,7 @@ public class CourseOfferingUploadAlignmentTest {
     void testUploadMarks_MissingStudent_AutoRegistered_Success() {
         when(programmeBatchCourseRepository.existsById("offering-cs301-2025")).thenReturn(true);
         when(programmeBatchCourseRepository.findById("offering-cs301-2025")).thenReturn(Optional.of(offering2025));
-        when(studentRepository.findByPrn("PRN-NEW-001")).thenReturn(Optional.empty());
+        when(studentRepository.findByPrnIn(any())).thenReturn(List.of());
 
         StudentMarksRowDto row = StudentMarksRowDto.builder()
                 .srNo(1)
@@ -168,7 +169,7 @@ public class CourseOfferingUploadAlignmentTest {
                 )
         );
 
-        verify(studentRepository).save(any(Student.class));
+        verify(studentRepository).saveAll(any());
         verify(studentCoMarkRepository).deleteByProgrammeBatchCourseId("offering-cs301-2025");
         verify(studentCoMarkRepository).saveAll(any());
     }
@@ -178,11 +179,12 @@ public class CourseOfferingUploadAlignmentTest {
     void testUploadMarks_SameCourseDifferentBatches_Isolation() {
         when(programmeBatchCourseRepository.existsById("offering-cs301-2025")).thenReturn(true);
         when(programmeBatchCourseRepository.findById("offering-cs301-2025")).thenReturn(Optional.of(offering2025));
-        when(studentRepository.findByPrn("PRN-2025-001")).thenReturn(Optional.of(student2025));
 
         when(programmeBatchCourseRepository.existsById("offering-cs301-2024")).thenReturn(true);
         when(programmeBatchCourseRepository.findById("offering-cs301-2024")).thenReturn(Optional.of(offering2024));
-        when(studentRepository.findByPrn("PRN-2024-001")).thenReturn(Optional.of(student2024));
+
+        when(studentRepository.findByPrnIn(Set.of("PRN-2025-001"))).thenReturn(List.of(student2025));
+        when(studentRepository.findByPrnIn(Set.of("PRN-2024-001"))).thenReturn(List.of(student2024));
 
         // Save Offering 2025 marks
         StudentMarksRowDto row2025 = StudentMarksRowDto.builder()

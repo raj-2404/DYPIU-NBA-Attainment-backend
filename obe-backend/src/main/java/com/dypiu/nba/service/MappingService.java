@@ -1,4 +1,5 @@
 package com.dypiu.nba.service;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.entity.*;
 import com.dypiu.nba.repository.*;
@@ -15,6 +16,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MappingService {
@@ -58,7 +60,9 @@ public class MappingService {
         if (offering == null) return false;
         if (offering.getProgrammeBatchId() != null && offering.getSemester() != null) {
             String semKey = "allocation-" + offering.getProgrammeBatchId().trim() + "-sem-" + offering.getSemester();
-            boolean semApproved = approvalRequestRepository.findAll().stream()
+            List<ApprovalType> types = List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING);
+            List<ApprovalRequest> requests = approvalRequestRepository.findAllocationApprovals(types, semKey, semKey, offering.getProgrammeBatchId());
+            boolean semApproved = requests.stream()
                     .filter(a -> a.getType() == ApprovalType.COURSE_ALLOCATION && (semKey.equalsIgnoreCase(a.getResourceId()) || semKey.equalsIgnoreCase(a.getProgrammeBatchId())))
                     .max(LATEST_APPROVAL_COMPARATOR)
                     .map(a -> a.getStatus() == ApprovalStatus.APPROVED)
@@ -74,7 +78,9 @@ public class MappingService {
         }
         if (progId == null || progId.isBlank()) return false;
         final String targetProgId = progId.replace("allocation-", "").replace("allocation_", "").replace("allocation", "").trim();
-        return approvalRequestRepository.findAll().stream()
+        List<ApprovalType> types = List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING);
+        List<ApprovalRequest> requests = approvalRequestRepository.findAllocationApprovals(types, targetProgId, "allocation-" + targetProgId, targetProgId);
+        return requests.stream()
                 .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
                         && (targetProgId.equalsIgnoreCase(a.getMasterProgrammeId())
                         || ("allocation-" + targetProgId).equalsIgnoreCase(a.getResourceId())
@@ -146,14 +152,14 @@ public class MappingService {
 
     @Transactional(readOnly = true)
     public List<CoPoMapping> getCoPoMappings(String courseOutcomeId) {
-        System.out.println("[MappingService] getCoPoMappings called | courseOutcomeId: " + courseOutcomeId);
+        log.debug("[MappingService] getCoPoMappings called | courseOutcomeId: " + courseOutcomeId);
         enforceOutcomeScope(courseOutcomeId);
         return coPoMappingRepository.findByCourseOutcomeId(courseOutcomeId);
     }
 
     @Transactional
     public List<CoPoMapping> saveCoPoMappings(String courseOutcomeId, List<CoPoMapping> mappings) {
-        System.out.println("[MappingService] saveCoPoMappings called | courseOutcomeId: " + courseOutcomeId + " | count: " + (mappings != null ? mappings.size() : 0));
+        log.debug("[MappingService] saveCoPoMappings called | courseOutcomeId: " + courseOutcomeId + " | count: " + (mappings != null ? mappings.size() : 0));
         enforceOutcomeScope(courseOutcomeId);
         enforceOutcomeEditability(courseOutcomeId);
         coPoMappingRepository.deleteByCourseOutcomeId(courseOutcomeId);
@@ -166,14 +172,14 @@ public class MappingService {
 
     @Transactional(readOnly = true)
     public List<CoPsoMapping> getCoPsoMappings(String courseOutcomeId) {
-        System.out.println("[MappingService] getCoPsoMappings called | courseOutcomeId: " + courseOutcomeId);
+        log.debug("[MappingService] getCoPsoMappings called | courseOutcomeId: " + courseOutcomeId);
         enforceOutcomeScope(courseOutcomeId);
         return coPsoMappingRepository.findByCourseOutcomeId(courseOutcomeId);
     }
 
     @Transactional
     public List<CoPsoMapping> saveCoPsoMappings(String courseOutcomeId, List<CoPsoMapping> mappings) {
-        System.out.println("[MappingService] saveCoPsoMappings called | courseOutcomeId: " + courseOutcomeId + " | count: " + (mappings != null ? mappings.size() : 0));
+        log.debug("[MappingService] saveCoPsoMappings called | courseOutcomeId: " + courseOutcomeId + " | count: " + (mappings != null ? mappings.size() : 0));
         enforceOutcomeScope(courseOutcomeId);
         enforceOutcomeEditability(courseOutcomeId);
         coPsoMappingRepository.deleteByCourseOutcomeId(courseOutcomeId);

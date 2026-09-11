@@ -54,7 +54,7 @@ public class AttainmentReportService {
 
     @Transactional
     public CourseAttainmentReportDto getOrCreateCourseAttainmentReport(String programmeBatchCourseId) {
-        System.out.println("[AttainmentReportService] getOrCreateCourseAttainmentReport called | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[AttainmentReportService] getOrCreateCourseAttainmentReport called | programmeBatchCourseId: " + programmeBatchCourseId);
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(programmeBatchCourseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course Offering not found: " + programmeBatchCourseId));
 
@@ -73,7 +73,7 @@ public class AttainmentReportService {
 
     @Transactional
     public CourseAttainmentReportDto finalizeCourseReport(String programmeBatchCourseId, String actorName) {
-        System.out.println("[AttainmentReportService] finalizeCourseReport called | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[AttainmentReportService] finalizeCourseReport called | programmeBatchCourseId: " + programmeBatchCourseId);
         ProgrammeBatchCourse offering = programmeBatchCourseRepository.findById(programmeBatchCourseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course Offering not found: " + programmeBatchCourseId));
 
@@ -314,7 +314,7 @@ public class AttainmentReportService {
 
     @Transactional
     public ProgrammeBatchAttainmentReportDto getOrCreateProgrammeAttainmentReport(String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[AttainmentReportService] getOrCreateProgrammeAttainmentReport called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AttainmentReportService] getOrCreateProgrammeAttainmentReport called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Programme Batch not found: " + programmeBatchId));
         MasterProgramme prog = masterProgrammeRepository.findById(masterProgrammeId)
@@ -335,7 +335,7 @@ public class AttainmentReportService {
 
     @Transactional
     public ProgrammeBatchAttainmentReportDto finalizeProgrammeReport(String masterProgrammeId, String programmeBatchId, String actorName) {
-        System.out.println("[AttainmentReportService] finalizeProgrammeReport called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[AttainmentReportService] finalizeProgrammeReport called | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         ProgrammeBatch batch = programmeBatchRepository.findById(programmeBatchId)
                 .orElseThrow(() -> new ResourceNotFoundException("Programme Batch not found: " + programmeBatchId));
         MasterProgramme prog = masterProgrammeRepository.findById(masterProgrammeId)
@@ -615,7 +615,7 @@ public class AttainmentReportService {
 
     @Transactional(readOnly = true)
     public List<CourseAttainmentReportDto> getHistoricalCourseAttainmentReports(String masterCourseId) {
-        System.out.println("[AttainmentReportService] getHistoricalCourseAttainmentReports called | masterCourseId: " + masterCourseId);
+        log.debug("[AttainmentReportService] getHistoricalCourseAttainmentReports called | masterCourseId: " + masterCourseId);
         ProgrammeBatchCourse offeringCourse = programmeBatchCourseRepository.findById(masterCourseId)
                 .orElseThrow(() -> new ResourceNotFoundException("Course not found: " + masterCourseId));
 
@@ -665,7 +665,7 @@ public class AttainmentReportService {
 
     @Transactional(readOnly = true)
     public List<ProgrammeBatchAttainmentReportDto> getHistoricalProgrammeAttainmentReports(String masterProgrammeId) {
-        System.out.println("[AttainmentReportService] getHistoricalProgrammeAttainmentReports called | masterProgrammeId: " + masterProgrammeId);
+        log.debug("[AttainmentReportService] getHistoricalProgrammeAttainmentReports called | masterProgrammeId: " + masterProgrammeId);
         MasterProgramme prog = masterProgrammeRepository.findById(masterProgrammeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Master Programme not found: " + masterProgrammeId));
 

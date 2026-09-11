@@ -181,21 +181,12 @@ public class DashboardController {
         List<ProgrammeBatchCourse> offerings = programmeBatchIds.isEmpty() ? Collections.emptyList() : programmeBatchCourseRepository.findByProgrammeBatchIdInAndDeletedAtIsNull(programmeBatchIds);
         List<ProgrammeBatchCourse> courses = offerings;
 
-        long allocationsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> (a.getType() == ApprovalType.COURSE_ALLOCATION || a.getType() == ApprovalType.COURSE_OFFERING)
-                        && a.getMasterProgrammeId() != null && progIds.contains(a.getMasterProgrammeId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
-        long targetsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.PO_PSO_TARGETS
-                        && a.getMasterProgrammeId() != null && progIds.contains(a.getMasterProgrammeId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
-        long programmeAtrPending = progIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.PROGRAMME_ATR
-                        && a.getMasterProgrammeId() != null && progIds.contains(a.getMasterProgrammeId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
+        long allocationsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeInAndMasterProgrammeIdInAndStatus(
+                List.of(ApprovalType.COURSE_ALLOCATION, ApprovalType.COURSE_OFFERING), progIds, ApprovalStatus.PENDING);
+        long targetsPending = progIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeAndMasterProgrammeIdInAndStatus(
+                ApprovalType.PO_PSO_TARGETS, progIds, ApprovalStatus.PENDING);
+        long programmeAtrPending = progIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeAndMasterProgrammeIdInAndStatus(
+                ApprovalType.PROGRAMME_ATR, progIds, ApprovalStatus.PENDING);
         long pendingApprovalsCount = allocationsPending + targetsPending + programmeAtrPending;
 
         Map<String, Object> pendingBreakdown = new LinkedHashMap<>();
@@ -347,21 +338,12 @@ public class DashboardController {
         List<ProgrammeBatchCourse> courses = offerings;
 
         List<String> offeringIds = offerings.stream().map(ProgrammeBatchCourse::getId).collect(Collectors.toList());
-        long configPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> (a.getType() == ApprovalType.ATTAINMENT_CONFIGURATION || a.getType() == ApprovalType.ATTAINMENT_SETTINGS)
-                        && a.getProgrammeBatchCourseId() != null && offeringIds.contains(a.getProgrammeBatchCourseId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
-        long coTargetsPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> (a.getType() == ApprovalType.CO_DEFINITION || a.getType() == ApprovalType.CO_TARGETS || a.getType() == ApprovalType.COURSE_OUTCOMES_TARGETS)
-                        && a.getProgrammeBatchCourseId() != null && offeringIds.contains(a.getProgrammeBatchCourseId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
-        long courseAtrPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.COURSE_ATR
-                        && a.getProgrammeBatchCourseId() != null && offeringIds.contains(a.getProgrammeBatchCourseId())
-                        && a.getStatus() == ApprovalStatus.PENDING)
-                .count();
+        long configPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeInAndProgrammeBatchCourseIdInAndStatus(
+                List.of(ApprovalType.ATTAINMENT_CONFIGURATION, ApprovalType.ATTAINMENT_SETTINGS), offeringIds, ApprovalStatus.PENDING);
+        long coTargetsPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeInAndProgrammeBatchCourseIdInAndStatus(
+                List.of(ApprovalType.CO_DEFINITION, ApprovalType.CO_TARGETS, ApprovalType.COURSE_OUTCOMES_TARGETS), offeringIds, ApprovalStatus.PENDING);
+        long courseAtrPending = offeringIds.isEmpty() ? 0 : approvalRequestRepository.countByTypeAndProgrammeBatchCourseIdInAndStatus(
+                ApprovalType.COURSE_ATR, offeringIds, ApprovalStatus.PENDING);
         long pendingVerifications = configPending + coTargetsPending + courseAtrPending;
 
         Map<String, Object> pendingBreakdown = new LinkedHashMap<>();
@@ -464,10 +446,10 @@ public class DashboardController {
         workflowProgress.put("/marks-upload", marksDone);
         workflowProgress.put("/course-atr", atrDone);
 
-        boolean isConfigRevision = (offeringId != null) && approvalRequestRepository.findAll().stream()
-                .anyMatch(a -> a.getType() == ApprovalType.ATTAINMENT_CONFIGURATION && offeringId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) && a.getStatus() == ApprovalStatus.REVISION_REQUESTED);
-        boolean isCoRevision = (offeringId != null) && approvalRequestRepository.findAll().stream()
-                .anyMatch(a -> (a.getType() == ApprovalType.CO_DEFINITION || a.getType() == ApprovalType.CO_TARGETS) && offeringId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) && a.getStatus() == ApprovalStatus.REVISION_REQUESTED);
+        boolean isConfigRevision = (offeringId != null) && approvalRequestRepository.countByTypeInAndProgrammeBatchCourseIdInAndStatus(
+                List.of(ApprovalType.ATTAINMENT_CONFIGURATION, ApprovalType.ATTAINMENT_SETTINGS), List.of(offeringId), ApprovalStatus.REVISION_REQUESTED) > 0;
+        boolean isCoRevision = (offeringId != null) && approvalRequestRepository.countByTypeInAndProgrammeBatchCourseIdInAndStatus(
+                List.of(ApprovalType.CO_DEFINITION, ApprovalType.CO_TARGETS, ApprovalType.COURSE_OUTCOMES_TARGETS), List.of(offeringId), ApprovalStatus.REVISION_REQUESTED) > 0;
         boolean isAtrRevision = (offeringId != null) && courseAtrRepository.findByProgrammeBatchCourseId(offeringId).stream()
                 .anyMatch(a -> a.getStatus() == CourseAtrStatus.REVISION_REQUESTED);
         boolean hasRevision = isConfigRevision || isCoRevision || isAtrRevision;

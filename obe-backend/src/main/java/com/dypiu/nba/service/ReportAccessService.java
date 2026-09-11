@@ -129,7 +129,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public User getAuthenticatedUser(Principal principal) {
-        System.out.println("[ReportAccessService] getAuthenticatedUser called | principal: " + (principal != null ? principal.getName() : "null"));
+        log.debug("[ReportAccessService] getAuthenticatedUser called | principal: " + (principal != null ? principal.getName() : "null"));
         String usernameOrEmail = null;
         if (principal != null) {
             usernameOrEmail = principal.getName();
@@ -152,7 +152,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateProgrammeAccess(User user, String masterProgrammeId) {
-        System.out.println("[ReportAccessService] validateProgrammeAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterProgrammeId: " + masterProgrammeId);
+        log.debug("[ReportAccessService] validateProgrammeAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterProgrammeId: " + masterProgrammeId);
         if (user == null || masterProgrammeId == null) return;
         if (user.getRole() == UserRole.IQAC) return;
 
@@ -200,7 +200,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateBatchAccess(User user, String programmeBatchId) {
-        System.out.println("[ReportAccessService] validateBatchAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[ReportAccessService] validateBatchAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchId: " + programmeBatchId);
         if (user == null || programmeBatchId == null) return;
         if (user.getRole() == UserRole.IQAC) return;
 
@@ -229,7 +229,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateCourseOfferingAccess(User user, String programmeBatchCourseId) {
-        System.out.println("[ReportAccessService] validateCourseOfferingAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[ReportAccessService] validateCourseOfferingAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
         if (user == null || programmeBatchCourseId == null) return;
         if (user.getRole() == UserRole.IQAC) return;
 
@@ -291,7 +291,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateCourseCoordinatorAccess(User user, String programmeBatchCourseId) {
-        System.out.println("[ReportAccessService] validateCourseCoordinatorAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[ReportAccessService] validateCourseCoordinatorAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
         if (user == null || programmeBatchCourseId == null) return;
         if (user.getRole() == UserRole.IQAC || user.getRole() == UserRole.DIRECTOR || user.getRole() == UserRole.HOD || user.getRole() == UserRole.PROGRAMME_COORDINATOR) {
             validateCourseOfferingAccess(user, programmeBatchCourseId);
@@ -315,7 +315,7 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateCourseAccess(User user, String masterCourseId) {
-        System.out.println("[ReportAccessService] validateCourseAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterCourseId: " + masterCourseId);
+        log.debug("[ReportAccessService] validateCourseAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterCourseId: " + masterCourseId);
         if (user == null || masterCourseId == null) return;
         if (user.getRole() == UserRole.IQAC) return;
 
@@ -352,20 +352,20 @@ public class ReportAccessService {
 
     @Transactional(readOnly = true)
     public void validateCourseAtrAccess(User user, String programmeBatchCourseId) {
-        System.out.println("[ReportAccessService] validateCourseAtrAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[ReportAccessService] validateCourseAtrAccess called | user: " + (user != null ? user.getEmail() : "null") + " | programmeBatchCourseId: " + programmeBatchCourseId);
         validateCourseOfferingAccess(user, programmeBatchCourseId);
     }
 
     @Transactional(readOnly = true)
     public void validateProgrammeAtrAccess(User user, String masterProgrammeId, String programmeBatchId) {
-        System.out.println("[ReportAccessService] validateProgrammeAtrAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
+        log.debug("[ReportAccessService] validateProgrammeAtrAccess called | user: " + (user != null ? user.getEmail() : "null") + " | masterProgrammeId: " + masterProgrammeId + " | programmeBatchId: " + programmeBatchId);
         validateProgrammeAccess(user, masterProgrammeId);
         validateBatchAccess(user, programmeBatchId);
     }
 
     @Transactional(readOnly = true)
     public ReportFiltersDto getReportFilters(User user) {
-        System.out.println("[ReportAccessService] getReportFilters called | user: " + (user != null ? user.getEmail() : "null"));
+        log.debug("[ReportAccessService] getReportFilters called | user: " + (user != null ? user.getEmail() : "null"));
         String roleStr = user != null && user.getRole() != null ? user.getRole().name() : "FACULTY";
 
         List<MasterProgramme> allowedProgrammes = new ArrayList<>();

@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface StudentRepository extends JpaRepository<Student, String> {
     List<Student> findByProgrammeBatchId(String programmeBatchId);
     Optional<Student> findByPrn(String prn);
+    List<Student> findByPrnIn(java.util.Collection<String> prns);
     Optional<Student> findByProgrammeBatchIdAndPrn(String programmeBatchId, String prn);
 }

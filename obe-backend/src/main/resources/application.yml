@@ -1,9 +1,16 @@
 server:
   port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain,text/xml,text/css,application/javascript
+    min-response-size: 1024
   servlet:
     context-path: /api/v1
 
 spring:
+  threads:
+    virtual:
+      enabled: true
   application:
     name: obe-backend
   profiles:
@@ -15,11 +22,14 @@ spring:
     password: ${DATABASE_PASSWORD:Sam@2445}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:2}
       idle-timeout: 300000
       connection-timeout: 20000
       max-lifetime: 1200000
+      leak-detection-threshold: ${DB_LEAK_DETECTION_THRESHOLD:60000}
+      data-source-properties:
+        reWriteBatchedInserts: true
 
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
@@ -31,6 +41,7 @@ spring:
         format_sql: true
         jdbc:
           batch_size: 50
+          batch_versioned_data: true
         order_inserts: true
         order_updates: true
 

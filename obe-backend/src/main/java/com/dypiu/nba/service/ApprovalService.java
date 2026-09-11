@@ -1,4 +1,5 @@
 package com.dypiu.nba.service;
+import lombok.extern.slf4j.Slf4j;
 
 import com.dypiu.nba.dto.*;
 import com.dypiu.nba.entity.*;
@@ -17,6 +18,7 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ApprovalService {
@@ -230,7 +232,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public List<ApprovalRequest> getApprovals(String role, String status, String type, String schoolId, String masterProgrammeId) {
-        System.out.println("[ApprovalService] getApprovals called | role: " + role + " | status: " + status + " | type: " + type + " | schoolId: " + schoolId + " | masterProgrammeId: " + masterProgrammeId);
+        log.debug("[ApprovalService] getApprovals called | role: " + role + " | status: " + status + " | type: " + type + " | schoolId: " + schoolId + " | masterProgrammeId: " + masterProgrammeId);
         CurrentUserScope scope = getScope();
         List<ApprovalRequest> list = approvalRequestRepository.findAll();
         list.forEach(this::resolveMissingScopeFields);
@@ -313,7 +315,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public List<ApprovalRequest> getDirectorApprovals(String schoolId) {
-        System.out.println("[ApprovalService] getDirectorApprovals called | schoolId: " + schoolId);
+        log.debug("[ApprovalService] getDirectorApprovals called | schoolId: " + schoolId);
         CurrentUserScope scope = getScope();
         String targetSchool = schoolId;
         if (scope != null && scope.isDirector()) {
@@ -334,7 +336,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public List<ApprovalRequest> getHodApprovals(String masterProgrammeId, String status) {
-        System.out.println("[ApprovalService] getHodApprovals called | masterProgrammeId: " + masterProgrammeId + " | status: " + status);
+        log.debug("[ApprovalService] getHodApprovals called | masterProgrammeId: " + masterProgrammeId + " | status: " + status);
         CurrentUserScope scope = getScope();
 
         Set<ApprovalType> hodTypes = Set.of(
@@ -428,7 +430,7 @@ public class ApprovalService {
 
     @Transactional
     public ApprovalRequest actionRequest(String id, String action, String comments, String clientActorName, String clientActorRole) {
-        System.out.println("[ApprovalService] actionRequest called | id: " + id + " | action: " + action);
+        log.debug("[ApprovalService] actionRequest called | id: " + id + " | action: " + action);
         if ("APPROVE".equalsIgnoreCase(action) || "APPROVED".equalsIgnoreCase(action)) {
             return approveRequest(id, clientActorName, clientActorRole);
         } else if ("REJECT".equalsIgnoreCase(action) || "REJECTED".equalsIgnoreCase(action) || "REQUEST_REVISION".equalsIgnoreCase(action) || "NEEDS_REVISION".equalsIgnoreCase(action)) {
@@ -440,7 +442,7 @@ public class ApprovalService {
 
     @Transactional
     public ApprovalRequest submitApprovalRequest(ApprovalRequest request) {
-        System.out.println("[ApprovalService] submitApprovalRequest called | type: " + (request != null ? request.getType() : "null") + " | resourceId: " + (request != null ? request.getResourceId() : "null"));
+        log.debug("[ApprovalService] submitApprovalRequest called | type: " + (request != null ? request.getType() : "null") + " | resourceId: " + (request != null ? request.getResourceId() : "null"));
         if (request == null) {
             throw new BadRequestException("Approval request payload cannot be null.");
         }
@@ -513,7 +515,7 @@ public class ApprovalService {
 
     @Transactional
     public ApprovalRequest approveRequest(String id, String clientActorName, String clientActorRole) {
-        System.out.println("[ApprovalService] approveRequest called | id: " + id);
+        log.debug("[ApprovalService] approveRequest called | id: " + id);
         ApprovalRequest req = approvalRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Approval request not found: " + id));
 
@@ -575,7 +577,7 @@ public class ApprovalService {
 
     @Transactional
     public ApprovalRequest rejectRequest(String id, String remarks, String clientActorName, String clientActorRole) {
-        System.out.println("[ApprovalService] rejectRequest called | id: " + id);
+        log.debug("[ApprovalService] rejectRequest called | id: " + id);
         ApprovalRequest req = approvalRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Approval request not found: " + id));
 
@@ -607,7 +609,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public ApprovalRequest getApprovalById(String id) {
-        System.out.println("[ApprovalService] getApprovalById called | id: " + id);
+        log.debug("[ApprovalService] getApprovalById called | id: " + id);
         ApprovalRequest req = approvalRequestRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Approval request not found: " + id));
         enforceApprovalScope(req);
@@ -616,7 +618,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public List<ApprovalHistory> getApprovalHistory(String approvalRequestId) {
-        System.out.println("[ApprovalService] getApprovalHistory called | approvalRequestId: " + approvalRequestId);
+        log.debug("[ApprovalService] getApprovalHistory called | approvalRequestId: " + approvalRequestId);
         ApprovalRequest req = approvalRequestRepository.findById(approvalRequestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Approval request not found: " + approvalRequestId));
         enforceApprovalScope(req);
@@ -625,7 +627,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public List<ApprovalRequest> getPendingApprovals(String role, String schoolId, String masterProgrammeId) {
-        System.out.println("[ApprovalService] getPendingApprovals called | role: " + role + " | schoolId: " + schoolId + " | masterProgrammeId: " + masterProgrammeId);
+        log.debug("[ApprovalService] getPendingApprovals called | role: " + role + " | schoolId: " + schoolId + " | masterProgrammeId: " + masterProgrammeId);
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isDirector()) {
             return getDirectorApprovals(scope.getRequiredSchoolId()).stream()
@@ -776,7 +778,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public ProgrammeBatchApprovalInboxDto getPendingApprovalsByProgrammeBatch(String programmeBatchId) {
-        System.out.println("[ApprovalService] getPendingApprovalsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
+        log.debug("[ApprovalService] getPendingApprovalsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
             throw new BadRequestException("programmeBatchId is required.");
         }
@@ -847,7 +849,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public ProgrammeBatchApprovalInboxDto getReviewedApprovalsByProgrammeBatch(String programmeBatchId) {
-        System.out.println("[ApprovalService] getReviewedApprovalsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
+        log.debug("[ApprovalService] getReviewedApprovalsByProgrammeBatch called | programmeBatchId: " + programmeBatchId);
         if (programmeBatchId == null || programmeBatchId.isBlank()) {
             throw new BadRequestException("programmeBatchId is required.");
         }
@@ -919,7 +921,7 @@ public class ApprovalService {
 
     @Transactional(readOnly = true)
     public CourseApprovalWorkspaceDto getCourseApprovalWorkspace(String programmeBatchCourseId) {
-        System.out.println("[ApprovalService] getCourseApprovalWorkspace called | programmeBatchCourseId: " + programmeBatchCourseId);
+        log.debug("[ApprovalService] getCourseApprovalWorkspace called | programmeBatchCourseId: " + programmeBatchCourseId);
         if (programmeBatchCourseId == null || programmeBatchCourseId.isBlank()) {
             throw new BadRequestException("programmeBatchCourseId is required.");
         }
@@ -1152,7 +1154,7 @@ public class ApprovalService {
 
     @Transactional
     public java.util.Map<String, Object> verifyStatus(String key, String statusType, String statusValue, String remarksValue, String clientVerifierName) {
-        System.out.println("[ApprovalService] verifyStatus called | key: " + key + " | statusType: " + statusType + " | statusValue: " + statusValue);
+        log.debug("[ApprovalService] verifyStatus called | key: " + key + " | statusType: " + statusType + " | statusValue: " + statusValue);
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isFaculty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Faculty members do not have approval or verification authority.");
@@ -1318,7 +1320,7 @@ public class ApprovalService {
 
     @Transactional
     public java.util.Map<String, Object> requestRevisionStatus(String key, String statusType, String statusValue, String remarksValue, String clientVerifierName) {
-        System.out.println("[ApprovalService] requestRevisionStatus called | key: " + key + " | statusType: " + statusType + " | remarks: " + remarksValue);
+        log.debug("[ApprovalService] requestRevisionStatus called | key: " + key + " | statusType: " + statusType + " | remarks: " + remarksValue);
         CurrentUserScope scope = getScope();
         if (scope != null && scope.isFaculty()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: Faculty members do not have approval or revision authority.");
@@ -1503,7 +1505,11 @@ public class ApprovalService {
     public boolean isProgrammeAtrApproved(String batchOrProgId) {
         if (batchOrProgId == null || batchOrProgId.isBlank()) return false;
         String id = batchOrProgId.replace("prog-atr-", "").replace("programme-atr-", "").replace("prog_atr-", "").replace("prog_atr_", "").replace("prog-atr", "").replace("programme-atr", "");
-        ApprovalRequest patrReq = approvalRequestRepository.findAll().stream()
+        List<ApprovalRequest> candidateRequests = new ArrayList<>();
+        candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchId(id));
+        candidateRequests.addAll(approvalRequestRepository.findByMasterProgrammeId(id));
+        candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(batchOrProgId));
+        ApprovalRequest patrReq = candidateRequests.stream()
                 .filter(a -> a.getType() == ApprovalType.PROGRAMME_ATR && (id.equalsIgnoreCase(a.getProgrammeBatchId()) || id.equalsIgnoreCase(a.getMasterProgrammeId()) || batchOrProgId.equalsIgnoreCase(a.getResourceId())))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .orElse(null);
@@ -1515,8 +1521,11 @@ public class ApprovalService {
 
     public boolean isAttainmentConfigApproved(String batchCourseId) {
         if (batchCourseId == null || batchCourseId.isBlank()) return false;
-        ApprovalRequest configReq = approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.ATTAINMENT_CONFIGURATION && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
+        List<ApprovalRequest> candidateRequests = new ArrayList<>();
+        candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchCourseId(batchCourseId));
+        candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(batchCourseId));
+        ApprovalRequest configReq = candidateRequests.stream()
+                .filter(a -> a.getType() == ApprovalType.ATTAINMENT_CONFIGURATION && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .orElse(null);
         if (configReq != null) return configReq.getStatus() == ApprovalStatus.APPROVED;
@@ -1527,8 +1536,11 @@ public class ApprovalService {
 
     public boolean isCoDefinitionApproved(String batchCourseId) {
         if (batchCourseId == null || batchCourseId.isBlank()) return false;
-        ApprovalRequest coReq = approvalRequestRepository.findAll().stream()
-                .filter(a -> (a.getType() == ApprovalType.CO_DEFINITION || a.getType() == ApprovalType.CO_TARGETS) && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
+        List<ApprovalRequest> candidateRequests = new ArrayList<>();
+        candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchCourseId(batchCourseId));
+        candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(batchCourseId));
+        ApprovalRequest coReq = candidateRequests.stream()
+                .filter(a -> (a.getType() == ApprovalType.CO_DEFINITION || a.getType() == ApprovalType.CO_TARGETS) && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .orElse(null);
         return coReq != null && coReq.getStatus() == ApprovalStatus.APPROVED;
@@ -1536,8 +1548,11 @@ public class ApprovalService {
 
     public boolean isCourseAtrApproved(String batchCourseId) {
         if (batchCourseId == null || batchCourseId.isBlank()) return false;
-        ApprovalRequest atrReq = approvalRequestRepository.findAll().stream()
-                .filter(a -> a.getType() == ApprovalType.COURSE_ATR && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
+        List<ApprovalRequest> candidateRequests = new ArrayList<>();
+        candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchCourseId(batchCourseId));
+        candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(batchCourseId));
+        ApprovalRequest atrReq = candidateRequests.stream()
+                .filter(a -> a.getType() == ApprovalType.COURSE_ATR && (batchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || batchCourseId.equalsIgnoreCase(a.getResourceId())))
                 .max(LATEST_APPROVAL_COMPARATOR)
                 .orElse(null);
         if (atrReq != null) return atrReq.getStatus() == ApprovalStatus.APPROVED;
@@ -1548,9 +1563,13 @@ public class ApprovalService {
     @Transactional
     public void resetToDraftOnModification(ApprovalType type, String programmeBatchCourseId, String programmeBatchOrProgrammeId) {
         if (programmeBatchCourseId != null && !programmeBatchCourseId.isBlank()) {
-            List<ApprovalRequest> requests = approvalRequestRepository.findAll().stream()
+            List<ApprovalRequest> candidateRequests = new ArrayList<>();
+            candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchCourseId(programmeBatchCourseId));
+            candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(programmeBatchCourseId));
+            List<ApprovalRequest> requests = candidateRequests.stream()
                     .filter(a -> isSameApprovalCategory(a.getType(), type)
                             && (programmeBatchCourseId.equalsIgnoreCase(a.getProgrammeBatchCourseId()) || programmeBatchCourseId.equalsIgnoreCase(a.getResourceId())))
+                    .distinct()
                     .toList();
             for (ApprovalRequest req : requests) {
                 req.setStatus(ApprovalStatus.DRAFT);
@@ -1559,10 +1578,15 @@ public class ApprovalService {
             }
         }
         if (programmeBatchOrProgrammeId != null && !programmeBatchOrProgrammeId.isBlank()) {
-            List<ApprovalRequest> requests = approvalRequestRepository.findAll().stream()
+            List<ApprovalRequest> candidateRequests = new ArrayList<>();
+            candidateRequests.addAll(approvalRequestRepository.findByProgrammeBatchId(programmeBatchOrProgrammeId));
+            candidateRequests.addAll(approvalRequestRepository.findByMasterProgrammeId(programmeBatchOrProgrammeId));
+            candidateRequests.addAll(approvalRequestRepository.findByResourceIdIgnoreCase(programmeBatchOrProgrammeId));
+            List<ApprovalRequest> requests = candidateRequests.stream()
                     .filter(a -> isSameApprovalCategory(a.getType(), type) && (programmeBatchOrProgrammeId.equalsIgnoreCase(a.getProgrammeBatchId())
                             || programmeBatchOrProgrammeId.equalsIgnoreCase(a.getMasterProgrammeId())
                             || programmeBatchOrProgrammeId.equalsIgnoreCase(a.getResourceId())))
+                    .distinct()
                     .toList();
             for (ApprovalRequest req : requests) {
                 req.setStatus(ApprovalStatus.DRAFT);
