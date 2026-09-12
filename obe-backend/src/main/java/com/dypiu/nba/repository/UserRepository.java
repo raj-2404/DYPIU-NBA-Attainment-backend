@@ -20,4 +20,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleAndSchoolId(UserRole role, String schoolId);
     Boolean existsByUsername(String username);
     Boolean existsByEmail(String email);
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM users WHERE is_active = false", nativeQuery = true)
+    List<User> findDeactivatedUsers();
+
+    @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM users WHERE id = :id AND is_active = false", nativeQuery = true)
+    Optional<User> findDeactivatedUserById(@org.springframework.data.repository.query.Param("id") Long id);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE users SET is_active = true WHERE id = :id", nativeQuery = true)
+    int reactivateUserById(@org.springframework.data.repository.query.Param("id") Long id);
 }

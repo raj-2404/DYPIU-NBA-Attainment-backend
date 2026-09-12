@@ -87,4 +87,8 @@ public interface ProgrammeBatchCourseRepository extends JpaRepository<ProgrammeB
 
     @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM programme_batch_courses WHERE programme_batch_id = :programmeBatchId AND LOWER(code) = LOWER(:code) AND deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
     Optional<ProgrammeBatchCourse> findTrashCourseByProgrammeBatchIdAndCodeIgnoreCase(@org.springframework.data.repository.query.Param("programmeBatchId") String programmeBatchId, @org.springframework.data.repository.query.Param("code") String code);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE programme_batch_courses SET deleted_at = NULL, deleted_by = NULL, status = 'ACTIVE' WHERE id = :id", nativeQuery = true)
+    int restoreTrashCourseById(@org.springframework.data.repository.query.Param("id") String id);
 }

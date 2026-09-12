@@ -132,4 +132,8 @@ public interface ProgrammeBatchRepository extends JpaRepository<ProgrammeBatch, 
 
     @Query(value = "SELECT * FROM programme_batches WHERE master_programme_id = :masterProgrammeId AND start_year = :startYear AND deleted_at IS NOT NULL LIMIT 1", nativeQuery = true)
     Optional<ProgrammeBatch> findTrashBatchByMasterProgrammeIdAndStartYear(@Param("masterProgrammeId") String masterProgrammeId, @Param("startYear") Integer startYear);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @Query(value = "UPDATE programme_batches SET deleted_at = NULL, deleted_by = NULL, status = 'ACTIVE' WHERE id = :id", nativeQuery = true)
+    int restoreTrashBatchById(@Param("id") String id);
 }

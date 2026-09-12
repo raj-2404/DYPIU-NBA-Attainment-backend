@@ -52,4 +52,8 @@ public interface MasterProgrammeRepository extends JpaRepository<MasterProgramme
 
     @org.springframework.data.jpa.repository.Query(value = "SELECT * FROM master_programmes WHERE id = :id AND deleted_at IS NOT NULL", nativeQuery = true)
     Optional<MasterProgramme> findTrashProgrammeById(@org.springframework.data.repository.query.Param("id") String id);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query(value = "UPDATE master_programmes SET deleted_at = NULL, deleted_by = NULL, status = 'ACTIVE' WHERE id = :id", nativeQuery = true)
+    int restoreTrashProgrammeById(@org.springframework.data.repository.query.Param("id") String id);
 }

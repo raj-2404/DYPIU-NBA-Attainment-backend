@@ -16,6 +16,7 @@ public enum AuditAction {
     DELETE_APPROVED,
     DELETE_REJECTED,
     DELETE_EXECUTED,
+    RESTORE,
     LOGIN,
     LOGOUT
 }
