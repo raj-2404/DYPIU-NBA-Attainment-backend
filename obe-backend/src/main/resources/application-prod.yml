@@ -62,7 +62,7 @@ app:
   upload:
     dir: ${UPLOAD_STORAGE_PATH:${APP_UPLOAD_DIR:/app/uploads}}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:*} # Allows all public and private origins (http://150.129.156.37:3010, etc.)
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://pbas.dypiu.ac.in,http://10.100.0.23,http://150.129.156.37,http://localhost:3010,http://localhost:5173}
     allowed-methods: GET,POST,PUT,DELETE,PATCH,OPTIONS
     allowed-headers: "*"
     allow-credentials: true

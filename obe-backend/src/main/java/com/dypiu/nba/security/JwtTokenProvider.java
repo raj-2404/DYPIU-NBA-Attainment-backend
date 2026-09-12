@@ -128,6 +128,15 @@ public class JwtTokenProvider {
         }
     }
 
+    public java.util.Date getIssuedAtFromJwt(String token) {
+        try {
+            Claims claims = getClaimsFromJwt(token);
+            return claims.getIssuedAt();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public boolean validateToken(String authToken) {
         try {
             Jwts.parser().verifyWith(getSigningKey()).build().parseSignedClaims(authToken);

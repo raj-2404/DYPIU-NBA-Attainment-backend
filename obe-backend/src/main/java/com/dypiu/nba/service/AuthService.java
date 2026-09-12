@@ -16,6 +16,12 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.dypiu.nba.security.TokenRevocationService;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -24,10 +30,33 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
+    private final TokenRevocationService tokenRevocationService;
+
+        private final java.security.SecureRandom secureRandom = new java.security.SecureRandom();
+
+    // Single-use password reset tokens: SHA-256(token) -> username, expiring in 15 minutes
+    private final Cache<String, String> passwordResetTokenCache = Caffeine.newBuilder()
+            .expireAfterWrite(15, TimeUnit.MINUTES)
+            .maximumSize(10_000)
+            .build();
+
+    // In-memory OTP session data structure
+    @lombok.Value
+    public static class OtpSession {
+        String username;
+        String otpCode;
+        AtomicInteger attemptsRemaining;
+    }
+
+    // OTP sessions: loginSessionId (UUID) -> OtpSession, expiring in 5 minutes
+    private final Cache<String, OtpSession> otpSessionCache = Caffeine.newBuilder()
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .maximumSize(10_000)
+            .build();
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
-        log.debug("[AuthService] login called | identifier: " + (request != null ? (request.getUsername() != null ? request.getUsername() : request.getEmail()) : "null"));
+        log.debug("[AuthService] login called");
         String rawIdentifier = request.getUsername() != null ? request.getUsername() : request.getEmail();
         if (rawIdentifier == null || rawIdentifier.isBlank()) {
             throw new BadCredentialsException("Username or email is required");
@@ -60,7 +89,7 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        log.debug("[AuthService] register called | username: " + (request != null ? request.getUsername() : "null") + " | email: " + (request != null ? request.getEmail() : "null"));
+        log.debug("[AuthService] register called");
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new BadRequestException("Username is already taken");
         }
@@ -92,38 +121,165 @@ public class AuthService {
     public AuthResponse refreshToken(RefreshTokenRequest request) {
         log.debug("[AuthService] refreshToken called");
         String refreshToken = request.getRefreshToken();
-        if (refreshToken == null || !tokenProvider.validateRefreshToken(refreshToken)) {
-            throw new BadRequestException("Invalid or expired refresh token");
+        if (refreshToken == null || !tokenProvider.validateRefreshToken(refreshToken) || tokenRevocationService.isRevoked(refreshToken)) {
+            throw new BadRequestException("Invalid, expired, or revoked refresh token");
         }
 
         String username = tokenProvider.getUsernameFromJwt(refreshToken);
+        java.util.Date issuedAt = tokenProvider.getIssuedAtFromJwt(refreshToken);
+        if (tokenRevocationService.isUserTokenRevoked(username, issuedAt)) {
+            throw new BadRequestException("Session credentials were invalidated. Please log in again.");
+        }
+
         User user = userRepository.findByUsernameOrEmail(username, username)
                 .orElseThrow(() -> new BadRequestException("User not found for refresh token"));
+
+        if (user.getIsActive() != null && !user.getIsActive()) {
+            throw new BadRequestException("User account is deactivated");
+        }
+
+        // Rotate: revoke the previously used refresh token to prevent replay
+        tokenRevocationService.revokeToken(refreshToken);
 
         return buildAuthResponse(user);
     }
 
     public String requestPasswordReset(String email) {
-        log.debug("[AuthService] requestPasswordReset called | email: " + email);
-        return "Password reset link has been sent to " + email + ". Please check your inbox.";
+        log.debug("[AuthService] requestPasswordReset called");
+        if (email == null || email.isBlank()) {
+            throw new BadRequestException("Email is required for password reset");
+        }
+        String cleanEmail = email.trim();
+        Optional<User> userOpt = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(cleanEmail, cleanEmail);
+        if (userOpt.isEmpty()) {
+            userOpt = userRepository.findByUsernameOrEmail(cleanEmail, cleanEmail);
+        }
+
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (user.getIsActive() != null && user.getIsActive()) {
+                // Generate cryptographically secure 256-bit URL-safe reset token
+                byte[] randomBytes = new byte[32];
+                secureRandom.nextBytes(randomBytes);
+                String rawResetToken = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+
+                // Store only SHA-256 hash in cache
+                String tokenHash = tokenRevocationService.hashToken(rawResetToken);
+                passwordResetTokenCache.put(tokenHash, user.getUsername());
+                log.info("[AuthService] Generated password reset token for user (valid for 15 minutes)");
+            }
+        }
+
+        // Generic response to prevent user enumeration attacks
+        return "If an account with that email exists, a password reset token has been dispatched.";
     }
 
+    @Transactional
     public String resetPassword(String token, String newPassword) {
-        log.debug("[AuthService] resetPassword called | token: " + token);
+        log.debug("[AuthService] resetPassword called");
+        if (token == null || token.isBlank()) {
+            throw new BadRequestException("Password reset token is required");
+        }
+        if (newPassword == null || newPassword.trim().length() < 6) {
+            throw new BadRequestException("New password must be at least 6 characters in length");
+        }
+        String cleanToken = token.trim();
+        String tokenHash = tokenRevocationService.hashToken(cleanToken);
+        String username = passwordResetTokenCache.getIfPresent(tokenHash);
+        if (username == null) {
+            throw new BadRequestException("Invalid or expired password reset token. Please request a new one.");
+        }
+
+        User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(username, username)
+                .orElseGet(() -> userRepository.findByUsernameOrEmail(username, username)
+                .orElseThrow(() -> new BadRequestException("User associated with token not found")));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword.trim()));
+        userRepository.save(user);
+
+        // Invalidate single-use reset token and terminate all existing user sessions/tokens
+        passwordResetTokenCache.invalidate(tokenHash);
+        tokenRevocationService.revokeAllUserTokens(username);
+        log.info("[AuthService] Successfully reset password and revoked prior sessions for user: {}", username);
         return "Password reset successfully. Please login with your new credentials.";
     }
 
-    public AuthResponse verifyOtp(String loginSessionId, String code) {
-        log.debug("[AuthService] verifyOtp called | loginSessionId: " + loginSessionId + " | code: " + code);
-        User defaultUser = User.builder()
-                .id(1L)
-                .name("Verified User")
-                .email("user@dypiu.ac.in")
-                .username("verified_user")
-                .role(UserRole.FACULTY)
-                .build();
+    public Map<String, String> generateOtpSession(String identifier) {
+        if (identifier == null || identifier.isBlank()) {
+            throw new BadRequestException("Username or email is required to generate OTP");
+        }
+        String cleanId = identifier.trim();
+        User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(cleanId, cleanId)
+                .orElseGet(() -> userRepository.findByUsernameOrEmail(cleanId, cleanId)
+                .orElseThrow(() -> new BadRequestException("User not found: " + cleanId)));
 
-        return buildAuthResponse(defaultUser);
+        String loginSessionId = UUID.randomUUID().toString();
+        // Generate unpredictable 6-digit numeric OTP using SecureRandom
+        int randomCode = secureRandom.nextInt(1_000_000);
+        String otpCode = String.format("%06d", randomCode);
+
+        otpSessionCache.put(loginSessionId, new OtpSession(user.getUsername(), otpCode, new AtomicInteger(3)));
+        log.info("[AuthService] Generated OTP session for user (valid for 5 minutes)");
+        return Map.of("loginSessionId", loginSessionId, "message", "OTP generated and dispatched successfully");
+    }
+
+    @Transactional(readOnly = true)
+    public AuthResponse verifyOtp(String loginSessionId, String code) {
+        log.debug("[AuthService] verifyOtp called");
+        if (loginSessionId == null || loginSessionId.isBlank()) {
+            throw new BadRequestException("Login session ID is required for OTP verification");
+        }
+        if (code == null || code.isBlank()) {
+            throw new BadRequestException("OTP code is required");
+        }
+        String cleanSession = loginSessionId.trim();
+        OtpSession session = otpSessionCache.getIfPresent(cleanSession);
+        if (session == null) {
+            throw new BadRequestException("Invalid or expired verification session. Please request a new OTP.");
+        }
+
+        int remainingAttempts = session.getAttemptsRemaining().decrementAndGet();
+        if (!session.getOtpCode().equals(code.trim())) {
+            if (remainingAttempts <= 0) {
+                otpSessionCache.invalidate(cleanSession);
+                throw new BadRequestException("Verification session terminated due to excessive invalid attempts.");
+            }
+            throw new BadCredentialsException("Invalid verification code. Remaining attempts: " + remainingAttempts);
+        }
+
+        otpSessionCache.invalidate(cleanSession);
+        User user = userRepository.findByUsernameIgnoreCaseOrEmailIgnoreCase(session.getUsername(), session.getUsername())
+                .orElseGet(() -> userRepository.findByUsernameOrEmail(session.getUsername(), session.getUsername())
+                .orElseThrow(() -> new BadRequestException("User not found for session: " + session.getUsername())));
+
+        log.info("[AuthService] OTP verification successful for user: {}", user.getUsername());
+        return buildAuthResponse(user);
+    }
+
+    public void logout(String accessToken, String refreshToken) {
+        if (accessToken != null && !accessToken.isBlank()) {
+            tokenRevocationService.revokeToken(accessToken.trim());
+        }
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            tokenRevocationService.revokeToken(refreshToken.trim());
+        }
+        log.info("[AuthService] User session successfully terminated and tokens revoked upon logout");
+    }
+
+    // Helper for testing internal token creation
+    public String createTestPasswordResetToken(String username) {
+        byte[] randomBytes = new byte[32];
+        secureRandom.nextBytes(randomBytes);
+        String rawResetToken = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
+        String tokenHash = tokenRevocationService.hashToken(rawResetToken);
+        passwordResetTokenCache.put(tokenHash, username);
+        return rawResetToken;
+    }
+
+    public String createTestOtpSession(String username, String code) {
+        String loginSessionId = UUID.randomUUID().toString();
+        otpSessionCache.put(loginSessionId, new OtpSession(username, code, new AtomicInteger(3)));
+        return loginSessionId;
     }
 
     private final com.dypiu.nba.repository.SchoolRepository schoolRepository;

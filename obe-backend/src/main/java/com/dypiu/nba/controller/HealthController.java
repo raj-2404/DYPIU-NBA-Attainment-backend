@@ -14,14 +14,10 @@ public class HealthController {
     public ResponseEntity<ApiResponse<Map<String, String>>> healthCheck() {
         return ResponseEntity.ok(ApiResponse.<Map<String, String>>builder()
                 .success(true)
-                .message("DYPIU NBA Attainment Backend is running successfully")
+                .message("DYPIU NBA Attainment Backend is operational")
                 .data(Map.of(
                         "status", "UP",
-                        "system", "DYPIU NBA Attainment System",
-                        "javaVersion", System.getProperty("java.version"),
-                        "springBoot", "3.3.2",
-                        "database", "PostgreSQL",
-                        "migrationEngine", "Flyway"
+                        "service", "DYPIU NBA Attainment System"
                 ))
                 .build());
     }

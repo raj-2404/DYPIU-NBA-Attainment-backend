@@ -2,6 +2,7 @@ package com.dypiu.nba.service;
 
 import com.dypiu.nba.dto.*;
 import com.dypiu.nba.entity.*;
+import com.dypiu.nba.exception.BadRequestException;
 import com.dypiu.nba.exception.ResourceNotFoundException;
 import com.dypiu.nba.repository.*;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -72,10 +73,44 @@ public class AttainmentCalculationService {
         return name.replaceAll("[^a-zA-Z0-9._-]", "_");
     }
 
+    private void validateUploadedSpreadsheet(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("Uploaded file cannot be empty");
+        }
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new BadRequestException("Uploaded file must have a valid filename");
+        }
+        String lower = originalFilename.toLowerCase();
+        if (!lower.endsWith(".xlsx") && !lower.endsWith(".xls") && !lower.endsWith(".csv")) {
+            throw new BadRequestException("Invalid file extension. Only .xlsx, .xls, and .csv files are permitted.");
+        }
+        try (InputStream is = file.getInputStream()) {
+            byte[] header = new byte[8];
+            int read = is.read(header);
+            if (read >= 2) {
+                // ZIP / OOXML (.xlsx) header: 0x50 0x4B (PK)
+                boolean isZip = header[0] == 0x50 && header[1] == 0x4B;
+                // OLE2 (.xls) header: 0xD0 0xCF 0x11 0xE0
+                boolean isOle2 = read >= 4 && (header[0] & 0xFF) == 0xD0 && (header[1] & 0xFF) == 0xCF
+                        && (header[2] & 0xFF) == 0x11 && (header[3] & 0xFF) == 0xE0;
+                boolean isCsv = lower.endsWith(".csv");
+                if (!isZip && !isOle2 && !isCsv) {
+                    throw new BadRequestException("Invalid file content: file header does not match allowed spreadsheet format.");
+                }
+            }
+        } catch (BadRequestException bre) {
+            throw bre;
+        } catch (Exception e) {
+            log.warn("[AttainmentCalculationService] Spreadsheet header inspection skipped: {}", e.getMessage());
+        }
+    }
+
     public Path saveUploadedFile(MultipartFile file, String subCategory, String programmeBatchCourseId) {
         if (file == null || file.isEmpty()) {
             return null;
         }
+        validateUploadedSpreadsheet(file);
         try {
             String base = (baseUploadDir != null && !baseUploadDir.isBlank()) ? baseUploadDir : "/app/uploads";
             Path targetDirectory = Paths.get(base, subCategory, programmeBatchCourseId).toAbsolutePath().normalize();
@@ -83,13 +118,19 @@ public class AttainmentCalculationService {
 
             String originalFilename = file.getOriginalFilename();
             String safeFileName = System.currentTimeMillis() + "_" + sanitizeFilename(originalFilename);
-            Path targetFilePath = targetDirectory.resolve(safeFileName);
+            Path targetFilePath = targetDirectory.resolve(safeFileName).normalize();
+
+            if (!targetFilePath.startsWith(targetDirectory)) {
+                throw new BadRequestException("Invalid file path: path traversal detected");
+            }
 
             try (InputStream is = file.getInputStream()) {
                 Files.copy(is, targetFilePath, StandardCopyOption.REPLACE_EXISTING);
             }
             log.info("[AttainmentCalculationService] Successfully stored uploaded file: {}", targetFilePath);
             return targetFilePath;
+        } catch (BadRequestException bre) {
+            throw bre;
         } catch (Exception e) {
             log.error("[AttainmentCalculationService] Failed to store uploaded file: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store uploaded file: " + e.getMessage(), e);
@@ -100,6 +141,7 @@ public class AttainmentCalculationService {
         if (file == null || file.isEmpty()) {
             return null;
         }
+        validateUploadedSpreadsheet(file);
         try {
             String base = (baseUploadDir != null && !baseUploadDir.isBlank()) ? baseUploadDir : "/app/uploads";
             Path targetDirectory = Paths.get(base, "programme-survey", masterProgrammeId, programmeBatchId).toAbsolutePath().normalize();
@@ -107,13 +149,19 @@ public class AttainmentCalculationService {
 
             String originalFilename = file.getOriginalFilename();
             String safeFileName = System.currentTimeMillis() + "_" + sanitizeFilename(originalFilename);
-            Path targetFilePath = targetDirectory.resolve(safeFileName);
+            Path targetFilePath = targetDirectory.resolve(safeFileName).normalize();
+
+            if (!targetFilePath.startsWith(targetDirectory)) {
+                throw new BadRequestException("Invalid file path: path traversal detected");
+            }
 
             try (InputStream is = file.getInputStream()) {
                 Files.copy(is, targetFilePath, StandardCopyOption.REPLACE_EXISTING);
             }
             log.info("[AttainmentCalculationService] Successfully stored programme survey file: {}", targetFilePath);
             return targetFilePath;
+        } catch (BadRequestException bre) {
+            throw bre;
         } catch (Exception e) {
             log.error("[AttainmentCalculationService] Failed to store programme survey file: {}", e.getMessage(), e);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to store programme survey file: " + e.getMessage(), e);

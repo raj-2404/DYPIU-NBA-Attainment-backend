@@ -21,6 +21,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenRevocationService tokenRevocationService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -29,8 +30,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt) && !tokenRevocationService.isRevoked(jwt)) {
                 String username = tokenProvider.getUsernameFromJwt(jwt);
+                java.util.Date issuedAt = tokenProvider.getIssuedAtFromJwt(jwt);
+                if (tokenRevocationService.isUserTokenRevoked(username, issuedAt)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 String activeRole = tokenProvider.getActiveRoleFromJwt(jwt);
                 String schoolId = tokenProvider.getSchoolIdFromJwt(jwt);
                 String departmentId = tokenProvider.getDepartmentIdFromJwt(jwt);

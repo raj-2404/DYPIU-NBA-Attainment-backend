@@ -48,16 +48,29 @@ public class SecurityConfig {
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)
+            .headers(headers -> headers
+                .contentTypeOptions(Customizer.withDefaults())
+                .frameOptions(frame -> frame.deny())
+                .httpStrictTransportSecurity(hsts -> hsts
+                    .includeSubDomains(true)
+                    .maxAgeInSeconds(31536000)
+                )
+            )
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint(unauthorizedHandler)
                 .accessDeniedHandler(accessDeniedHandler)
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Authentication is mandatory for every business API.  Client-side route
-                // guards are UX only; authorization is derived from the verified JWT here.
+                // Public endpoints: Auth flows and basic uptime healthcheck
                 .requestMatchers("/auth/**", "/api/v1/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/health", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers(HttpMethod.GET, "/health", "/actuator/health", "/actuator/info").permitAll()
+
+                // Restricted administrative tooling: Swagger/OpenAPI & sensitive Actuators require IQAC role
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").hasRole("IQAC")
+                .requestMatchers("/actuator/**").hasRole("IQAC")
+
+                // Business API authorization boundaries
                 .requestMatchers("/admin/**").hasRole("IQAC")
                 .requestMatchers("/users/**").authenticated()
                 .anyRequest().authenticated()
@@ -88,6 +101,7 @@ public class SecurityConfig {
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition", "Content-Type"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Cache CORS preflight for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
